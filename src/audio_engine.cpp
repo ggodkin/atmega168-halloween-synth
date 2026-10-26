@@ -1,13 +1,13 @@
 #include <Arduino.h>
 #include "audio_engine.h"
+#include "config.h"
 #include "noise.h"
 
 namespace {
-const uint16_t samplesPerSound = 32000;
 int16_t filteredNoise = 0;
 int16_t deepNoise = 0;
 uint16_t soundSample = 0;
-uint8_t sound = 0;
+uint8_t sound = Config::windSound;
 uint16_t modulationPhase = 0;
 uint16_t ghostPhase = 0;
 uint16_t squeakPhase = 0;
@@ -39,7 +39,7 @@ void resetSequence() {
     filteredNoise = 0;
     deepNoise = 0;
     soundSample = 0;
-    sound = 0;
+    sound = Config::windSound;
     modulationPhase = 0;
     ghostPhase = 0;
     squeakPhase = 0;
@@ -75,134 +75,168 @@ uint8_t AudioEngine::nextSample() {
     }
     // Fade on state changes to avoid clicks when the motion sensor toggles.
     if (playingEnabled) {
-        outputGain = outputGain > 251 ? 255 : outputGain + 4;
+        outputGain = outputGain > 255 - Config::outputGainStep
+            ? 255
+            : outputGain + Config::outputGainStep;
     } else {
-        outputGain = outputGain < 4 ? 0 : outputGain - 4;
+        outputGain = outputGain < Config::outputGainStep
+            ? 0
+            : outputGain - Config::outputGainStep;
     }
 
     int16_t noise = (int16_t)noise8() - 128;
-    filteredNoise += (noise - filteredNoise) >> 4;
-    deepNoise += (filteredNoise - deepNoise) >> 6;
+    filteredNoise += (noise - filteredNoise) >> Config::filteredNoiseShift;
+    deepNoise += (filteredNoise - deepNoise) >> Config::deepNoiseShift;
 
     uint16_t position = soundSample;
     int16_t sample = 0;
 
     switch (sound) {
-    case 0: { // Slow gust modulation and layered low-passed noise make wind, not hiss.
-        modulationPhase += 1;
+    case Config::windSound: { // Slow gust modulation and layered low-passed noise make wind, not hiss.
+        modulationPhase += Config::Wind::gustPhaseStep;
         uint8_t gust = triangleWave(modulationPhase);
-        int16_t windNoise = (filteredNoise - deepNoise) / 2
-            + deepNoise / 2 + noise / 16;
-        sample = windNoise * (64 + (gust >> 1)) / 192;
+        int16_t windNoise = (filteredNoise - deepNoise)
+                / Config::Wind::filteredNoiseDivisor
+            + deepNoise / Config::Wind::deepNoiseDivisor
+            + noise / Config::Wind::rawNoiseDivisor;
+        sample = windNoise
+            * (Config::Wind::noiseScale + (gust >> Config::Wind::gustDepthShift))
+            / Config::Wind::mixDivisor;
         break;
     }
-    case 1: { // Pitch-vibrato on a strong near-sine tone gives the ghost a clear howl.
-        modulationPhase += 14;
+    case Config::ghostSound: { // Pitch-vibrato on a strong near-sine tone gives the ghost a clear howl.
+        modulationPhase += Config::Ghost::vibratoPhaseStep;
         uint8_t wobble = triangleWave(modulationPhase);
-        uint16_t frequency = 145 + (wobble >> 1);
-        ghostPhase += frequency << 3;
-        sample = sineSignal(ghostPhase) * 3 / 4 + noise / 12;
+        uint16_t frequency = Config::Ghost::baseFrequency
+            + (wobble >> Config::Ghost::wobbleShift);
+        ghostPhase += frequency << Config::phaseIncrementShift;
+        sample = sineSignal(ghostPhase) * Config::Ghost::toneNumerator
+                / Config::Ghost::toneDivisor
+            + noise / Config::Ghost::noiseScale;
         break;
     }
-    case 2: { // A short crack leads into a separately decaying low rumble.
-        modulationPhase += 3;
-        uint8_t rumbleDecay = position < 30000
-            ? 255 - position / 118
+    case Config::thunderSound: { // A short crack leads into a separately decaying low rumble.
+        modulationPhase += Config::Thunder::rumblePhaseStep;
+        uint8_t rumbleDecay = position < Config::Thunder::rumbleDecaySamples
+            ? 255 - position / Config::Thunder::rumbleDecayDivisor
             : 0;
-        int16_t rumble = deepNoise + triangleSignal(modulationPhase) / 2;
-        int16_t crack = position < 1200
-            ? noise * ((1200 - position) >> 3) / 150
+        int16_t rumble = deepNoise
+            + triangleSignal(modulationPhase) / Config::Thunder::rumbleToneDivisor;
+        int16_t crack = position < Config::Thunder::crackSamples
+            ? noise * ((Config::Thunder::crackSamples - position)
+                >> Config::Thunder::crackLevelDivisor)
+                / Config::Thunder::crackScale
             : 0;
-        sample = crack + (rumble / 2) * rumbleDecay / 128;
+        sample = crack
+            + (rumble / Config::Thunder::rumbleToneDivisor) * rumbleDecay
+                / Config::Thunder::rumbleOutputDivisor;
         break;
     }
-    case 3: { // Narrow pitch movement plus friction noise makes a hinge creak, not a siren.
+    case Config::doorSound: { // Narrow pitch movement plus friction noise makes a hinge creak, not a siren.
         uint16_t squeakPosition = 0;
         uint16_t squeakDuration = 0;
-        if (position >= 1800 && position < 7800) {
-            squeakPosition = position - 1800;
-            squeakDuration = 6000;
-        } else if (position >= 12000 && position < 20000) {
-            squeakPosition = position - 12000;
-            squeakDuration = 8000;
+        if (position >= Config::Door::firstCreakStart
+            && position < Config::Door::firstCreakEnd) {
+            squeakPosition = position - Config::Door::firstCreakStart;
+            squeakDuration = Config::Door::firstCreakEnd - Config::Door::firstCreakStart;
+        } else if (position >= Config::Door::secondCreakStart
+            && position < Config::Door::secondCreakEnd) {
+            squeakPosition = position - Config::Door::secondCreakStart;
+            squeakDuration = Config::Door::secondCreakEnd - Config::Door::secondCreakStart;
         }
 
         if (squeakDuration) {
             uint16_t edge = squeakPosition;
             uint16_t release = squeakDuration - squeakPosition;
             if (release < edge) edge = release;
-            uint8_t envelope = edge < 640 ? edge >> 5 : 20;
-            int16_t pitchJitter = filteredNoise / 8;
-            uint16_t frequency = 620 + (squeakPosition >> 6) + pitchJitter;
-            squeakPhase += frequency << 3;
+            uint8_t envelope = edge < Config::Door::attackSamples
+                ? edge >> Config::Door::attackEnvelopeShift
+                : Config::Door::creakEnvelope;
+            int16_t pitchJitter = filteredNoise / Config::Door::pitchJitterDivisor;
+            uint16_t frequency = Config::Door::baseFrequency
+                + (squeakPosition >> Config::Door::pitchStepShift)
+                + pitchJitter;
+            squeakPhase += frequency << Config::phaseIncrementShift;
             int16_t friction = filteredNoise - deepNoise;
-            sample = triangleSignal(squeakPhase) * envelope / 48
-                + friction * envelope / 48;
+            sample = triangleSignal(squeakPhase) * envelope / Config::Door::waveformScale
+                + friction * envelope / Config::Door::waveformScale;
         } else {
-            sample = noise / 24;
+            sample = noise / Config::Door::idleNoiseDivisor;
         }
         break;
     }
-    case 4: { // Inharmonic partials ring down at different rates after a noisy strike.
-        bellFundamentalPhase += 587 << 3;
-        bellPartialPhase += 987 << 3;
-        bellHighPartialPhase += 1571 << 3;
-        uint8_t fundamentalDecay = position < 28000
-            ? 255 - position / 110
+    case Config::bellSound: { // Inharmonic partials ring down at different rates after a noisy strike.
+        bellFundamentalPhase += Config::Bell::fundamentalFrequency
+            << Config::phaseIncrementShift;
+        bellPartialPhase += Config::Bell::partialFrequency
+            << Config::phaseIncrementShift;
+        bellHighPartialPhase += Config::Bell::highPartialFrequency
+            << Config::phaseIncrementShift;
+        uint8_t fundamentalDecay = position < Config::Bell::fundamentalDecaySamples
+            ? 255 - position / Config::Bell::fundamentalDecayDivisor
             : 0;
-        uint8_t partialDecay = position < 18000
-            ? 190 - position / 100
-            : 10;
-        uint8_t highDecay = position < 9000
-            ? 160 - position / 60
-            : 10;
-        sample = sineSignal(bellFundamentalPhase) * fundamentalDecay / 420
-            + sineSignal(bellPartialPhase) * partialDecay / 600
-            + sineSignal(bellHighPartialPhase) * highDecay / 700;
-        if (position < 120) {
-            sample += noise * (120 - position) / 120;
+        uint8_t partialDecay = position < Config::Bell::partialDecaySamples
+            ? Config::Bell::partialDecayBase - position / Config::Bell::partialDecayDivisor
+            : Config::Bell::partialDecayFloor;
+        uint8_t highDecay = position < Config::Bell::highDecaySamples
+            ? Config::Bell::highDecayBase - position / Config::Bell::highDecayDivisor
+            : Config::Bell::highDecayFloor;
+        sample = sineSignal(bellFundamentalPhase) * fundamentalDecay
+                / Config::Bell::fundamentalMixDivisor
+            + sineSignal(bellPartialPhase) * partialDecay / Config::Bell::partialMixDivisor
+            + sineSignal(bellHighPartialPhase) * highDecay
+                / Config::Bell::highPartialMixDivisor;
+        if (position < Config::Bell::strikeSamples) {
+            sample += noise * (Config::Bell::strikeSamples - position)
+                / Config::Bell::strikeSamples;
         }
         break;
     }
-    default: { // Paired owl hoots use a breathy attack and a rounded falling contour.
-        uint16_t cycle = position % 9000;
+    case Config::owlSound: { // Paired owl hoots use a breathy attack and a rounded falling contour.
+        uint16_t cycle = position % Config::Owl::cycleSamples;
         uint16_t hootPosition = 0;
         bool hooting = false;
-        if (cycle >= 300 && cycle < 2900) {
-            hootPosition = cycle - 300;
+        if (cycle >= Config::Owl::firstHootStart && cycle < Config::Owl::firstHootEnd) {
+            hootPosition = cycle - Config::Owl::firstHootStart;
             hooting = true;
-        } else if (cycle >= 3400 && cycle < 6000) {
-            hootPosition = cycle - 3400;
+        } else if (cycle >= Config::Owl::secondHootStart
+            && cycle < Config::Owl::secondHootEnd) {
+            hootPosition = cycle - Config::Owl::secondHootStart;
             hooting = true;
         }
 
         if (hooting) {
-            uint16_t contour = hootPosition < 1300
+            uint16_t contour = hootPosition < Config::Owl::pitchPeakSample
                 ? hootPosition
-                : 2600 - hootPosition;
-            uint16_t frequency = 360 + (contour >> 3);
-            owlPhase += frequency << 3;
-            uint16_t edge = hootPosition < 500
+                : (Config::Owl::firstHootEnd - Config::Owl::firstHootStart) - hootPosition;
+            uint16_t frequency = Config::Owl::baseFrequency
+                + (contour >> Config::Owl::pitchStepShift);
+            owlPhase += frequency << Config::phaseIncrementShift;
+            uint16_t hootLength = Config::Owl::firstHootEnd - Config::Owl::firstHootStart;
+            uint16_t edge = hootPosition < Config::Owl::attackSamples
                 ? hootPosition
-                : 2600 - hootPosition;
-            uint8_t envelope = edge < 800 ? edge >> 2 : 200;
-            sample = sineSignal(owlPhase) * envelope / 300 + noise / 18;
+                : hootLength - hootPosition;
+            uint8_t envelope = edge < Config::Owl::envelopeRampSamples
+                ? edge >> Config::Owl::envelopeShift
+                : Config::Owl::envelopeLevel;
+            sample = sineSignal(owlPhase) * envelope / Config::Owl::toneMixDivisor
+                + noise / Config::Owl::noiseScale;
         }
         break;
     }
     }
 
     uint8_t fade = 255;
-    if (position < 160) {
+    if (position < Config::soundFadeSamples) {
         fade = position;
-    } else if (position >= samplesPerSound - 160) {
-        fade = samplesPerSound - 1 - position;
+    } else if (position >= Config::samplesPerSound - Config::soundFadeSamples) {
+        fade = Config::samplesPerSound - 1 - position;
     }
     sample = (sample * fade) >> 8;
 
-    if (playingEnabled && ++soundSample == samplesPerSound) {
+    if (playingEnabled && ++soundSample == Config::samplesPerSound) {
         soundSample = 0;
-        sound = (sound + 1) % 6;
+        sound = (sound + 1) % Config::soundCount;
         modulationPhase = 0;
         ghostPhase = 0;
         squeakPhase = 0;
