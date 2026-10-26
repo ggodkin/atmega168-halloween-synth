@@ -1,3 +1,3 @@
 #pragma once
 #include <Arduino.h>
-namespace AudioEngine { void begin(); uint8_t nextSample(); }
+namespace AudioEngine { void begin(); void setEnabled(bool enabled); uint8_t nextSample(); }

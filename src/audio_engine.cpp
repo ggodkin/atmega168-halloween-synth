@@ -15,6 +15,10 @@ uint16_t bellFundamentalPhase = 0;
 uint16_t bellPartialPhase = 0;
 uint16_t bellHighPartialPhase = 0;
 uint16_t owlPhase = 0;
+// An 8-bit request is atomic to read between the main loop and audio ISR.
+volatile uint8_t requestedEnabled = 0;
+uint8_t playingEnabled = 0;
+uint8_t outputGain = 0;
 
 uint8_t triangleWave(uint16_t phase) {
     uint8_t value = (phase & 0x7FFF) >> 7;
@@ -30,9 +34,8 @@ int16_t sineSignal(uint16_t phase) {
     int16_t magnitude = value < 0 ? -value : value;
     return (value * (256 - magnitude)) >> 7;
 }
-}
 
-void AudioEngine::begin() {
+void resetSequence() {
     filteredNoise = 0;
     deepNoise = 0;
     soundSample = 0;
@@ -45,8 +48,38 @@ void AudioEngine::begin() {
     bellHighPartialPhase = 0;
     owlPhase = 0;
 }
+}
+
+void AudioEngine::begin() {
+    requestedEnabled = 0;
+    playingEnabled = 0;
+    outputGain = 0;
+    resetSequence();
+}
+
+void AudioEngine::setEnabled(bool enabled) {
+    requestedEnabled = enabled ? 1 : 0;
+}
 
 uint8_t AudioEngine::nextSample() {
+    uint8_t enableRequest = requestedEnabled;
+    if (enableRequest != playingEnabled) {
+        playingEnabled = enableRequest;
+        if (playingEnabled) {
+            resetSequence();
+        }
+    }
+
+    if (!playingEnabled && outputGain == 0) {
+        return 128;
+    }
+    // Fade on state changes to avoid clicks when the motion sensor toggles.
+    if (playingEnabled) {
+        outputGain = outputGain > 251 ? 255 : outputGain + 4;
+    } else {
+        outputGain = outputGain < 4 ? 0 : outputGain - 4;
+    }
+
     int16_t noise = (int16_t)noise8() - 128;
     filteredNoise += (noise - filteredNoise) >> 4;
     deepNoise += (filteredNoise - deepNoise) >> 6;
@@ -167,7 +200,7 @@ uint8_t AudioEngine::nextSample() {
     }
     sample = (sample * fade) >> 8;
 
-    if (++soundSample == samplesPerSound) {
+    if (playingEnabled && ++soundSample == samplesPerSound) {
         soundSample = 0;
         sound = (sound + 1) % 6;
         modulationPhase = 0;
@@ -179,6 +212,9 @@ uint8_t AudioEngine::nextSample() {
         owlPhase = 0;
     }
 
+    if (sample < -128) sample = -128;
+    if (sample > 127) sample = 127;
+    sample = sample * outputGain / 255;
     sample += 128;
     if (sample < 0) sample = 0;
     if (sample > 255) sample = 255;
