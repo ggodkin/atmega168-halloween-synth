@@ -1,10 +1,11 @@
 #pragma once
 
-#include <Arduino.h>
+#include <avr/io.h>
+#include <stdint.h>
 
 namespace Config {
-constexpr uint8_t motionSensorPin = 2;
-constexpr uint8_t pwmOutputPin = 6;
+constexpr uint8_t motionSensorBit = PD2;
+constexpr uint8_t pwmOutputBit = PD6;
 constexpr uint8_t pwmCenter = 128;
 constexpr uint16_t audioSampleRate = 8000;
 // Timer1 runs without a prescaler, so this produces one interrupt per audio sample.

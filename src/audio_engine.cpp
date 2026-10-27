@@ -1,4 +1,3 @@
-#include <Arduino.h>
 #include "audio_engine.h"
 #include "config.h"
 #include "noise.h"

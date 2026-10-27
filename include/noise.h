@@ -1,3 +1,3 @@
 #pragma once
-#include <Arduino.h>
+#include <stdint.h>
 uint8_t noise8();
