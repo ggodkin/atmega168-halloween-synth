@@ -35,7 +35,8 @@ int main() {
     setupAudioTimer();
     sei();
 
-    uint8_t previousSensorState = PIND & _BV(Config::motionSensorBit);
+    // Treat an already-active sensor at startup as the first rising-edge trigger.
+    uint8_t previousSensorState = 0;
     for (;;) {
         uint8_t sensorState = PIND & _BV(Config::motionSensorBit);
         // Only a new low-to-high edge starts a request; a held-high sensor does not retrigger.
