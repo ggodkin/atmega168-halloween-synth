@@ -35,7 +35,13 @@ int main() {
     setupAudioTimer();
     sei();
 
+    uint8_t previousSensorState = PIND & _BV(Config::motionSensorBit);
     for (;;) {
-        AudioEngine::setEnabled((PIND & _BV(Config::motionSensorBit)) != 0);
+        uint8_t sensorState = PIND & _BV(Config::motionSensorBit);
+        // Only a new low-to-high edge starts a request; a held-high sensor does not retrigger.
+        if (sensorState && !previousSensorState) {
+            AudioEngine::trigger();
+        }
+        previousSensorState = sensorState;
     }
 }

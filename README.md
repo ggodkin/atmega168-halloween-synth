@@ -2,11 +2,12 @@
 
 Bare-metal AVR firmware for an ATmega168 at 8 MHz; no Arduino framework is
 required. An RCWL-0516 motion sensor activates audio while its OUT pin is HIGH.
-Connect sensor OUT to PD2 (Arduino D2) and sensor GND to board GND. The six
-sounds (wind, ghost, thunder, door squeak, bell, and owl) play for four seconds
-each and repeat while motion is detected. Playback restarts at wind on each
-activation and fades out when motion stops. Audio is output as 31.25 kHz PWM on
-PD6/OC0A, updated at 8 kHz.
+Connect sensor OUT to PD2 (Arduino D2) and sensor GND to board GND. Each
+low-to-high transition starts one complete sequence: wind, ghost, thunder, door
+squeak, bell, and owl, four seconds each. Sensor transitions during playback
+are ignored; another sequence can start only after completion and a new
+low-to-high transition. Audio is output as 31.25 kHz PWM on PD6/OC0A, updated at
+8 kHz.
 
 Edit `include/config.h` to change the sensor/PWM pins, sample timing, sound
 durations, and per-sound tuning parameters. PlatformIO build and upload options

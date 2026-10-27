@@ -14,9 +14,9 @@ uint16_t bellFundamentalPhase = 0;
 uint16_t bellPartialPhase = 0;
 uint16_t bellHighPartialPhase = 0;
 uint16_t owlPhase = 0;
-// An 8-bit request is atomic to read between the main loop and audio ISR.
-volatile uint8_t requestedEnabled = 0;
-uint8_t playingEnabled = 0;
+// An 8-bit event request is atomic to consume from the audio ISR.
+volatile uint8_t triggerRequested = 0;
+uint8_t sequencePlaying = 0;
 uint8_t outputGain = 0;
 
 uint8_t triangleWave(uint16_t phase) {
@@ -46,42 +46,37 @@ void resetSequence() {
     bellPartialPhase = 0;
     bellHighPartialPhase = 0;
     owlPhase = 0;
+    outputGain = 0;
 }
 }
 
 void AudioEngine::begin() {
-    requestedEnabled = 0;
-    playingEnabled = 0;
-    outputGain = 0;
+    triggerRequested = 0;
+    sequencePlaying = 0;
     resetSequence();
 }
 
-void AudioEngine::setEnabled(bool enabled) {
-    requestedEnabled = enabled ? 1 : 0;
+void AudioEngine::trigger() {
+    triggerRequested = 1;
 }
 
 uint8_t AudioEngine::nextSample() {
-    uint8_t enableRequest = requestedEnabled;
-    if (enableRequest != playingEnabled) {
-        playingEnabled = enableRequest;
-        if (playingEnabled) {
+    if (triggerRequested) {
+        triggerRequested = 0;
+        // Triggers received while playing are consumed and intentionally discarded.
+        if (!sequencePlaying) {
             resetSequence();
+            sequencePlaying = 1;
         }
     }
 
-    if (!playingEnabled && outputGain == 0) {
+    if (!sequencePlaying) {
         return 128;
     }
-    // Fade on state changes to avoid clicks when the motion sensor toggles.
-    if (playingEnabled) {
-        outputGain = outputGain > 255 - Config::outputGainStep
-            ? 255
-            : outputGain + Config::outputGainStep;
-    } else {
-        outputGain = outputGain < Config::outputGainStep
-            ? 0
-            : outputGain - Config::outputGainStep;
-    }
+    // Fade in at the start; the final sound's envelope fades the sequence out.
+    outputGain = outputGain > 255 - Config::outputGainStep
+        ? 255
+        : outputGain + Config::outputGainStep;
 
     int16_t noise = (int16_t)noise8() - 128;
     filteredNoise += (noise - filteredNoise) >> Config::filteredNoiseShift;
@@ -233,16 +228,21 @@ uint8_t AudioEngine::nextSample() {
     }
     sample = (sample * fade) >> 8;
 
-    if (playingEnabled && ++soundSample == Config::samplesPerSound) {
+    if (++soundSample == Config::samplesPerSound) {
         soundSample = 0;
-        sound = (sound + 1) % Config::soundCount;
-        modulationPhase = 0;
-        ghostPhase = 0;
-        squeakPhase = 0;
-        bellFundamentalPhase = 0;
-        bellPartialPhase = 0;
-        bellHighPartialPhase = 0;
-        owlPhase = 0;
+        if (sound + 1 == Config::soundCount) {
+            sequencePlaying = 0;
+            outputGain = 0;
+        } else {
+            ++sound;
+            modulationPhase = 0;
+            ghostPhase = 0;
+            squeakPhase = 0;
+            bellFundamentalPhase = 0;
+            bellPartialPhase = 0;
+            bellHighPartialPhase = 0;
+            owlPhase = 0;
+        }
     }
 
     if (sample < -128) sample = -128;
