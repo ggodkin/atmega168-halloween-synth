@@ -22,7 +22,6 @@ constexpr uint16_t soundFadeSamples = samplesFromReferenceRate(160);
 constexpr uint8_t outputGainStep = 4;
 // Eight phase units per hertz approximates 65536 / the 8 kHz sample rate.
 constexpr uint8_t phaseIncrementScale = 8;
-constexpr uint8_t filteredNoiseShift = 4;
 constexpr uint8_t deepNoiseShift = 6;
 
 enum Sound : uint8_t {
@@ -34,6 +33,16 @@ enum Sound : uint8_t {
     owlSound
 };
 constexpr uint8_t soundCount = owlSound + 1;
+
+namespace PinkNoise {
+constexpr uint8_t fastFilterShift = 2;
+constexpr uint8_t midFilterShift = 4;
+constexpr uint8_t slowFilterShift = 6;
+constexpr uint8_t whiteWeightShift = 1;
+constexpr uint8_t fastWeightShift = 1;
+constexpr uint8_t midWeightShift = 2;
+constexpr uint8_t slowWeightShift = 3;
+}
 
 namespace Wind {
 constexpr uint16_t gustPhaseStep = samplesFromReferenceRate(1);

@@ -14,6 +14,9 @@ const uint8_t sineQuarterWave[64] PROGMEM = {
 
 int16_t filteredNoise = 0;
 int16_t deepNoise = 0;
+int16_t pinkFast = 0;
+int16_t pinkMid = 0;
+int16_t pinkSlow = 0;
 uint16_t soundSample = 0;
 uint8_t sound = Config::windSound;
 uint16_t modulationPhase = 0;
@@ -51,6 +54,9 @@ int16_t sineSignal(uint16_t phase) {
 void resetSequence() {
     filteredNoise = 0;
     deepNoise = 0;
+    pinkFast = 0;
+    pinkMid = 0;
+    pinkSlow = 0;
     soundSample = 0;
     sound = Config::windSound;
     modulationPhase = 0;
@@ -93,7 +99,14 @@ uint8_t AudioEngine::nextSample() {
         : outputGain + Config::outputGainStep;
 
     int16_t noise = (int16_t)noise8() - 128;
-    filteredNoise += (noise - filteredNoise) >> Config::filteredNoiseShift;
+    // Weighted parallel low-pass bands approximate equal energy per octave (pink noise).
+    pinkFast += (noise - pinkFast) >> Config::PinkNoise::fastFilterShift;
+    pinkMid += (noise - pinkMid) >> Config::PinkNoise::midFilterShift;
+    pinkSlow += (noise - pinkSlow) >> Config::PinkNoise::slowFilterShift;
+    filteredNoise = (noise >> Config::PinkNoise::whiteWeightShift)
+        + (pinkFast >> Config::PinkNoise::fastWeightShift)
+        + (pinkMid >> Config::PinkNoise::midWeightShift)
+        + (pinkSlow >> Config::PinkNoise::slowWeightShift);
     deepNoise += (filteredNoise - deepNoise) >> Config::deepNoiseShift;
 
     uint16_t position = soundSample;

@@ -16,7 +16,9 @@ cycles available per sample at 11.025 kHz, so raising the rate requires
 optimizing the sound paths and rechecking the ISR budget.
 
 Noise combines an independent xorshift32 generator and a 16-bit Galois LFSR to
-produce a less repetitive noise sequence.
+produce a less repetitive white-noise source. Three parallel low-pass stages
+mix that source into a pink-noise approximation for the sound effects; their
+filter rates and mix weights are in `include/config.h`.
 
 Edit `include/config.h` to change the sensor/PWM pins, sample timing, sound
 durations, and per-sound tuning parameters. PlatformIO build and upload options
