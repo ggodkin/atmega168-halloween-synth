@@ -19,6 +19,10 @@ const uint8_t bellAttackEnvelope[32] PROGMEM = {
     0, 1, 3, 7, 12, 18, 25, 33, 42, 52, 62, 74, 85, 97, 109, 121,
     134, 146, 158, 170, 181, 193, 203, 213, 222, 230, 237, 243, 248, 252, 254, 255
 };
+const uint8_t thunderRumbleEnvelope[24] PROGMEM = {
+    255, 248, 240, 230, 220, 210, 198, 186, 174, 160, 146, 132,
+    118, 104, 90, 77, 64, 52, 41, 31, 22, 14, 7, 0
+};
 const int8_t owlWaveTable[64] PROGMEM = {
     0, 12, 24, 36, 48, 60, 71, 81, 91, 99, 107, 113, 117, 119, 120, 118,
     115, 110, 104, 96, 87, 77, 67, 58, 48, 39, 31, 24, 18, 13, 8, 4,
@@ -53,6 +57,8 @@ uint16_t soundSample = 0;
 uint8_t sound = Config::windSound;
 uint16_t modulationPhase = 0;
 uint16_t slowGustPhase = 0;
+uint16_t thunderRumblePhase = 0;
+uint16_t thunderSecondaryPhase = 0;
 uint16_t ghostPhase = 0;
 uint16_t ghostChorusPhase = 0;
 uint16_t squeakPhase = 0;
@@ -81,10 +87,6 @@ uint8_t outputGain = 0;
 uint8_t triangleWave(uint16_t phase) {
     uint8_t value = (phase & 0x7FFF) >> 7;
     return (phase & 0x8000) ? 255 - value : value;
-}
-
-int16_t triangleSignal(uint16_t phase) {
-    return (int16_t)triangleWave(phase) - 128;
 }
 
 int16_t sineSignal(uint16_t phase) {
@@ -209,6 +211,8 @@ void resetSequence() {
     sound = Config::windSound;
     modulationPhase = 0;
     slowGustPhase = 0;
+    thunderRumblePhase = 0;
+    thunderSecondaryPhase = 0;
     ghostPhase = 0;
     ghostChorusPhase = 0;
     squeakPhase = 0;
@@ -316,10 +320,15 @@ uint8_t AudioEngine::nextSample() {
         sample = (ghostTone + noise / Config::Ghost::noiseScale) * decay >> 8;
         break;
     }
-    case Config::thunderSound: { // A filtered crack gives way to slow, pulsing low-frequency rumble.
+    case Config::thunderSound: { // A sharp crack gives way to loud, enveloped low-frequency rumble.
         modulationPhase += Config::Thunder::rumblePhaseStep;
-        uint8_t rumbleDecay = position < Config::Thunder::rumbleDecaySamples
-            ? 255 - position / Config::Thunder::rumbleDecayDivisor
+        thunderRumblePhase += Config::Thunder::rumbleToneFrequency
+            * Config::phaseIncrementScale;
+        thunderSecondaryPhase += Config::Thunder::secondaryRumbleFrequency
+            * Config::phaseIncrementScale;
+        uint8_t decayIndex = position >> Config::Thunder::rumbleEnvelopeStepShift;
+        uint8_t rumbleDecay = decayIndex < 24
+            ? pgm_read_byte(&thunderRumbleEnvelope[decayIndex])
             : 0;
         uint8_t boomGain = thunderBoomGain(position, Config::Thunder::firstBoomStart);
         uint8_t nextBoom = thunderBoomGain(position, Config::Thunder::secondBoomStart);
@@ -329,19 +338,23 @@ uint8_t AudioEngine::nextSample() {
         uint8_t rumbleGain = Config::Thunder::rumbleBaseGain
             + (triangleWave(modulationPhase) >> Config::Thunder::rumbleModulationShift)
             + boomGain;
-        int16_t decayedDeepNoise = (deepNoise / 2) * rumbleDecay
-            / Config::Thunder::rumbleOutputDivisor;
-        int16_t deepRumble = decayedDeepNoise * rumbleGain
-            / Config::Thunder::rumbleGainDivisor;
-        int16_t lowRumbleTone = triangleSignal(modulationPhase)
-            / Config::Thunder::rumbleToneDivisor * rumbleDecay
-            / Config::Thunder::rumbleOutputDivisor;
+        int16_t lowTone = (sineSignal(thunderRumblePhase) * 3
+            + sineSignal(thunderSecondaryPhase)) / 4;
+        int16_t lowRumbleTone = lowTone * rumbleGain >> 8;
+        lowRumbleTone = lowRumbleTone * rumbleDecay >> 8;
+        int16_t deepRumble = (deepNoise / 2) * rumbleGain >> 8;
+        deepRumble = deepRumble * rumbleDecay >> 8;
         int16_t highPassedNoise = noise - pinkFast;
-        int16_t crack = position < Config::Thunder::crackSamples
-            ? highPassedNoise * ((Config::Thunder::crackSamples - position)
-                >> Config::Thunder::crackLevelShift)
-                / Config::Thunder::crackScale
-            : 0;
+        int16_t crack = 0;
+        if (position < Config::Thunder::crackSamples) {
+            int32_t crackValue = (int32_t)highPassedNoise
+                * ((Config::Thunder::crackSamples - position)
+                    >> Config::Thunder::crackLevelShift)
+                / Config::Thunder::crackScale;
+            if (crackValue > 127) crackValue = 127;
+            if (crackValue < -128) crackValue = -128;
+            crack = (int16_t)crackValue;
+        }
         int16_t click = position == 0 ? Config::Thunder::crackClickLevel : 0;
         sample = position == 0 ? click : crack + deepRumble + lowRumbleTone;
         break;
@@ -463,14 +476,16 @@ uint8_t AudioEngine::nextSample() {
 
     uint16_t fadeSamples = sound == Config::bellSound
         ? Config::Bell::fadeSamples
-        : Config::soundFadeSamples;
+        : sound == Config::thunderSound
+            ? Config::Thunder::fadeSamples
+            : Config::soundFadeSamples;
     uint8_t fade = 255;
     if (position < fadeSamples) {
         fade = position;
     } else if (position >= activeSoundSamples - fadeSamples) {
         fade = activeSoundSamples - 1 - position;
     }
-    sample = (sample * fade) >> 8;
+    sample = ((int32_t)sample * fade) >> 8;
 
     if (++soundSample == activeSoundSamples) {
         soundSample = 0;
@@ -481,6 +496,8 @@ uint8_t AudioEngine::nextSample() {
             ++sound;
             modulationPhase = 0;
             slowGustPhase = 0;
+            thunderRumblePhase = 0;
+            thunderSecondaryPhase = 0;
             ghostPhase = 0;
             ghostChorusPhase = 0;
             squeakPhase = 0;

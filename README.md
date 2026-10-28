@@ -11,7 +11,8 @@ completion and a new low-to-high transition. Audio is output as 31.25 kHz PWM
 on PD6/OC0A, updated at 8 kHz.
 
 Thunder uses a loud, 300-sample high-passed noise crack with an initial click,
-followed by a slow, fading rumble with three low-frequency gain swells.
+followed by two layered low-frequency tones and filtered rumble under a
+multi-second decay envelope with three gain swells.
 
 The oscillator uses a 64-entry quarter-wave sine table in flash. The sample
 rate remains 8 kHz because some sound paths use AVR 16-bit division helpers.
