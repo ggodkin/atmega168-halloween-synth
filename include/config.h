@@ -157,16 +157,19 @@ constexpr uint16_t firstHootStart = samplesFromReferenceRate(300);
 constexpr uint16_t firstHootEnd = samplesFromReferenceRate(2900);
 constexpr uint16_t secondHootStart = samplesFromReferenceRate(3400);
 constexpr uint16_t secondHootEnd = samplesFromReferenceRate(6000);
-constexpr uint16_t baseFrequency = 480;
-constexpr uint8_t pitchGlideShift = 5;
-constexpr uint8_t secondHootOffset = 45;
+constexpr uint16_t baseFrequency = 500;
+constexpr uint8_t pitchRiseShift = 3;
+constexpr uint16_t pitchRiseSamples = samplesFromReferenceRate(320);
+constexpr uint8_t pitchGlideShift = 4;
+constexpr uint8_t secondHootOffset = 35;
 constexpr uint16_t vibratoPhaseStep =
     samplesFromReferenceRate(6) * phaseIncrementScale;
 constexpr uint8_t vibratoDivisor = 24;
-constexpr uint16_t attackSamples = samplesFromReferenceRate(500);
-constexpr uint16_t envelopeRampSamples = samplesFromReferenceRate(800);
-constexpr uint8_t envelopeShift = 2;
+constexpr uint16_t attackSamples = samplesFromReferenceRate(400);
+constexpr uint8_t attackEnvelopeShift = 1;
+constexpr uint8_t decayEnvelopeShift = 3;
 constexpr uint8_t envelopeLevel = 200;
 constexpr uint16_t toneMixDivisor = 300;
+constexpr uint8_t harmonicMixShift = 2;
 }
 }

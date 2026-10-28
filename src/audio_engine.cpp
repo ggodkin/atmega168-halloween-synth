@@ -350,7 +350,7 @@ uint8_t AudioEngine::nextSample() {
         }
         break;
     }
-    case Config::owlSound: { // Paired clean-tone hoots descend in pitch, with a softer second call.
+    case Config::owlSound: { // Paired rounded, harmonic hoots rise briefly then fall in pitch.
         uint16_t cycle = position % Config::Owl::cycleSamples;
         uint16_t hootPosition = 0;
         bool hooting = false;
@@ -368,21 +368,30 @@ uint8_t AudioEngine::nextSample() {
         if (hooting) {
             int16_t frequency = Config::Owl::baseFrequency
                 - (hootPosition >> Config::Owl::pitchGlideShift);
+            if (hootPosition < Config::Owl::pitchRiseSamples) {
+                frequency += hootPosition >> Config::Owl::pitchRiseShift;
+            }
             if (secondHoot) {
                 frequency -= Config::Owl::secondHootOffset;
                 owlVibratoPhase += Config::Owl::vibratoPhaseStep;
                 frequency += sineSignal(owlVibratoPhase) / Config::Owl::vibratoDivisor;
             }
-            if (frequency < 100) frequency = 100;
+            if (frequency < 180) frequency = 180;
             owlPhase += frequency * Config::phaseIncrementScale;
-            uint16_t hootLength = Config::Owl::firstHootEnd - Config::Owl::firstHootStart;
-            uint16_t edge = hootPosition < Config::Owl::attackSamples
-                ? hootPosition
-                : hootLength - hootPosition;
-            uint8_t envelope = edge < Config::Owl::envelopeRampSamples
-                ? edge >> Config::Owl::envelopeShift
-                : Config::Owl::envelopeLevel;
-            sample = sineSignal(owlPhase) * envelope / Config::Owl::toneMixDivisor;
+            uint8_t envelope;
+            if (hootPosition < Config::Owl::attackSamples) {
+                envelope = hootPosition >> Config::Owl::attackEnvelopeShift;
+            } else {
+                uint16_t decay = (hootPosition - Config::Owl::attackSamples)
+                    >> Config::Owl::decayEnvelopeShift;
+                envelope = decay < Config::Owl::envelopeLevel
+                    ? Config::Owl::envelopeLevel - decay
+                    : 0;
+            }
+            int16_t fundamental = sineSignal(owlPhase);
+            int16_t harmonic = sineSignal(owlPhase << 1)
+                >> Config::Owl::harmonicMixShift;
+            sample = (fundamental + harmonic) * envelope / Config::Owl::toneMixDivisor;
         }
         break;
     }
