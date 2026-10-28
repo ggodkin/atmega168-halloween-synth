@@ -17,9 +17,12 @@ int16_t deepNoise = 0;
 int16_t pinkFast = 0;
 int16_t pinkMid = 0;
 int16_t pinkSlow = 0;
+int16_t windAirNoise = 0;
+int16_t windHissNoise = 0;
 uint16_t soundSample = 0;
 uint8_t sound = Config::windSound;
 uint16_t modulationPhase = 0;
+uint16_t slowGustPhase = 0;
 uint16_t ghostPhase = 0;
 uint16_t squeakPhase = 0;
 uint16_t bellFundamentalPhase = 0;
@@ -71,9 +74,12 @@ void resetSequence() {
     pinkFast = 0;
     pinkMid = 0;
     pinkSlow = 0;
+    windAirNoise = 0;
+    windHissNoise = 0;
     soundSample = 0;
     sound = Config::windSound;
     modulationPhase = 0;
+    slowGustPhase = 0;
     ghostPhase = 0;
     squeakPhase = 0;
     bellFundamentalPhase = 0;
@@ -127,15 +133,23 @@ uint8_t AudioEngine::nextSample() {
     int16_t sample = 0;
 
     switch (sound) {
-    case Config::windSound: { // Slow gust modulation and layered low-passed noise make wind, not hiss.
+    case Config::windSound: { // Layered gusts shape slow airflow and faster filtered hiss.
         modulationPhase += Config::Wind::gustPhaseStep;
+        slowGustPhase += Config::Wind::slowGustPhaseStep;
         uint8_t gust = triangleWave(modulationPhase);
+        uint8_t slowGust = triangleWave(slowGustPhase);
+        windAirNoise += (noise - windAirNoise) >> Config::Wind::airFilterShift;
+        windHissNoise += (noise - windHissNoise) >> Config::Wind::hissFilterShift;
         int16_t windNoise = (filteredNoise - deepNoise)
                 / Config::Wind::filteredNoiseDivisor
             + deepNoise / Config::Wind::deepNoiseDivisor
-            + noise / Config::Wind::rawNoiseDivisor;
-        sample = windNoise
-            * (Config::Wind::noiseScale + (gust >> Config::Wind::gustDepthShift))
+            + noise / Config::Wind::rawNoiseDivisor
+            + windAirNoise / Config::Wind::airMovementDivisor
+            + windHissNoise / Config::Wind::hissDivisor;
+        int16_t gustGain = Config::Wind::baseGain
+            + (gust >> Config::Wind::fastGustDepthShift)
+            + (slowGust >> Config::Wind::slowGustDepthShift);
+        sample = (windNoise / Config::Wind::windNoiseInputDivisor) * gustGain
             / Config::Wind::mixDivisor;
         break;
     }
@@ -288,6 +302,7 @@ uint8_t AudioEngine::nextSample() {
         } else {
             ++sound;
             modulationPhase = 0;
+            slowGustPhase = 0;
             ghostPhase = 0;
             squeakPhase = 0;
             bellFundamentalPhase = 0;

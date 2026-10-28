@@ -23,6 +23,10 @@ produce a less repetitive white-noise source. Three parallel low-pass stages
 mix that source into a pink-noise approximation for the sound effects; their
 filter rates and mix weights are in `include/config.h`.
 
+Wind uses two overlapping gust rates and separate low-pass noise bands for
+slow air movement and higher-frequency hiss. Their rates and mix levels are
+configurable in `include/config.h`.
+
 Edit `include/config.h` to change the sensor/PWM pins, sample timing, sound
 durations, and per-sound tuning parameters. PlatformIO build and upload options
 remain in `platformio.ini`.
