@@ -9,6 +9,9 @@ transitions during playback are ignored; another sequence can start only after
 completion and a new low-to-high transition. Audio is output as 31.25 kHz PWM
 on PD6/OC0A, updated at 8 kHz.
 
+Thunder uses a short filtered-noise crack followed by a slow, fading rumble
+with three low-frequency gain swells.
+
 The oscillator uses a 64-entry quarter-wave sine table in flash. The sample
 rate remains 8 kHz: the compiled bell path calls the AVR 16-bit division helper
 six times. Those software divisions alone can exceed the approximately 725

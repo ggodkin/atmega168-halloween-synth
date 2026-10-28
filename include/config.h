@@ -67,11 +67,22 @@ namespace Thunder {
 constexpr uint16_t rumblePhaseStep = samplesFromReferenceRate(3);
 constexpr uint16_t rumbleDecaySamples = samplesFromReferenceRate(30000);
 constexpr uint16_t rumbleDecayDivisor = samplesFromReferenceRate(118);
-constexpr uint16_t crackSamples = samplesFromReferenceRate(1200);
-constexpr uint16_t crackScale = 150;
-constexpr uint8_t rumbleToneDivisor = 2;
-constexpr uint8_t rumbleOutputDivisor = 128;
-constexpr uint8_t crackLevelDivisor = 8;
+constexpr uint16_t crackSamples = samplesFromReferenceRate(320);
+constexpr uint16_t crackScale = 80;
+constexpr uint8_t crackLevelDivisor = 2;
+constexpr uint8_t rumbleToneDivisor = 4;
+constexpr uint8_t rumbleGainDivisor = 32;
+constexpr int16_t rumbleOutputDivisor = 256;
+constexpr uint8_t rumbleBaseGain = 48;
+constexpr uint8_t rumbleModulationShift = 1;
+constexpr uint8_t boomPeakGain = 64;
+constexpr uint16_t boomAttackSamples = samplesFromReferenceRate(1024);
+constexpr uint16_t boomDecaySamples = samplesFromReferenceRate(2048);
+constexpr uint8_t boomAttackShift = 4;
+constexpr uint8_t boomDecayShift = 5;
+constexpr uint16_t firstBoomStart = samplesFromReferenceRate(2000);
+constexpr uint16_t secondBoomStart = samplesFromReferenceRate(12000);
+constexpr uint16_t thirdBoomStart = samplesFromReferenceRate(22000);
 }
 
 namespace Door {

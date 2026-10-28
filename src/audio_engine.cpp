@@ -51,6 +51,20 @@ int16_t sineSignal(uint16_t phase) {
     return (quadrant & 2) ? -value : value;
 }
 
+uint8_t thunderBoomGain(uint16_t position, uint16_t start) {
+    uint16_t age = position - start;
+    if (position < start || age >= Config::Thunder::boomAttackSamples
+            + Config::Thunder::boomDecaySamples) {
+        return 0;
+    }
+    if (age < Config::Thunder::boomAttackSamples) {
+        return age >> Config::Thunder::boomAttackShift;
+    }
+    return Config::Thunder::boomPeakGain
+        - ((age - Config::Thunder::boomAttackSamples)
+            >> Config::Thunder::boomDecayShift);
+}
+
 void resetSequence() {
     filteredNoise = 0;
     deepNoise = 0;
@@ -136,21 +150,32 @@ uint8_t AudioEngine::nextSample() {
             + noise / Config::Ghost::noiseScale;
         break;
     }
-    case Config::thunderSound: { // A short crack leads into a separately decaying low rumble.
+    case Config::thunderSound: { // A filtered crack gives way to slow, pulsing low-frequency rumble.
         modulationPhase += Config::Thunder::rumblePhaseStep;
         uint8_t rumbleDecay = position < Config::Thunder::rumbleDecaySamples
             ? 255 - position / Config::Thunder::rumbleDecayDivisor
             : 0;
-        int16_t rumble = deepNoise
-            + triangleSignal(modulationPhase) / Config::Thunder::rumbleToneDivisor;
+        uint8_t boomGain = thunderBoomGain(position, Config::Thunder::firstBoomStart);
+        uint8_t nextBoom = thunderBoomGain(position, Config::Thunder::secondBoomStart);
+        if (nextBoom > boomGain) boomGain = nextBoom;
+        nextBoom = thunderBoomGain(position, Config::Thunder::thirdBoomStart);
+        if (nextBoom > boomGain) boomGain = nextBoom;
+        uint8_t rumbleGain = Config::Thunder::rumbleBaseGain
+            + (triangleWave(modulationPhase) >> Config::Thunder::rumbleModulationShift)
+            + boomGain;
+        int16_t decayedDeepNoise = (deepNoise / 2) * rumbleDecay
+            / Config::Thunder::rumbleOutputDivisor;
+        int16_t deepRumble = decayedDeepNoise * rumbleGain
+            / Config::Thunder::rumbleGainDivisor;
+        int16_t lowRumbleTone = triangleSignal(modulationPhase)
+            / Config::Thunder::rumbleToneDivisor * rumbleDecay
+            / Config::Thunder::rumbleOutputDivisor;
         int16_t crack = position < Config::Thunder::crackSamples
-            ? noise * ((Config::Thunder::crackSamples - position)
+            ? filteredNoise * ((Config::Thunder::crackSamples - position)
                 >> Config::Thunder::crackLevelDivisor)
                 / Config::Thunder::crackScale
             : 0;
-        sample = crack
-            + (rumble / Config::Thunder::rumbleToneDivisor) * rumbleDecay
-                / Config::Thunder::rumbleOutputDivisor;
+        sample = crack + deepRumble + lowRumbleTone;
         break;
     }
     case Config::doorSound: { // Narrow pitch movement plus friction noise makes a hinge creak, not a siren.
