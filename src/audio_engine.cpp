@@ -43,6 +43,7 @@ int8_t bellPartialDetune = 0;
 int8_t bellHighPartialDetune = 0;
 int8_t bellFourthPartialDetune = 0;
 uint16_t owlPhase = 0;
+uint16_t owlChorusPhase = 0;
 uint16_t owlVibratoPhase = 0;
 // An 8-bit event request is atomic to consume from the audio ISR.
 volatile uint8_t triggerRequested = 0;
@@ -167,6 +168,7 @@ void resetSequence() {
     bellHighPartialDetune = 0;
     bellFourthPartialDetune = 0;
     owlPhase = 0;
+    owlChorusPhase = 0;
     owlVibratoPhase = 0;
     outputGain = 0;
 }
@@ -350,7 +352,7 @@ uint8_t AudioEngine::nextSample() {
         }
         break;
     }
-    case Config::owlSound: { // Paired rounded, harmonic hoots rise briefly then fall in pitch.
+    case Config::owlSound: { // Paired, softly chorused hoots use a rounded rise-and-fall contour.
         uint16_t cycle = position % Config::Owl::cycleSamples;
         uint16_t hootPosition = 0;
         bool hooting = false;
@@ -373,11 +375,13 @@ uint8_t AudioEngine::nextSample() {
             }
             if (secondHoot) {
                 frequency -= Config::Owl::secondHootOffset;
-                owlVibratoPhase += Config::Owl::vibratoPhaseStep;
-                frequency += sineSignal(owlVibratoPhase) / Config::Owl::vibratoDivisor;
             }
+            owlVibratoPhase += Config::Owl::vibratoPhaseStep;
+            frequency += sineSignal(owlVibratoPhase) / Config::Owl::vibratoDivisor;
             if (frequency < 180) frequency = 180;
             owlPhase += frequency * Config::phaseIncrementScale;
+            owlChorusPhase += (frequency + Config::Owl::chorusDetuneHz)
+                * Config::phaseIncrementScale;
             uint8_t envelope;
             if (hootPosition < Config::Owl::attackSamples) {
                 envelope = hootPosition >> Config::Owl::attackEnvelopeShift;
@@ -388,10 +392,14 @@ uint8_t AudioEngine::nextSample() {
                     ? Config::Owl::envelopeLevel - decay
                     : 0;
             }
-            int16_t fundamental = sineSignal(owlPhase);
+            int16_t chorusTone = (sineSignal(owlPhase) * Config::Owl::chorusMainWeight
+                + sineSignal(owlChorusPhase)) / (Config::Owl::chorusMainWeight + 1);
             int16_t harmonic = sineSignal(owlPhase << 1)
                 >> Config::Owl::harmonicMixShift;
-            sample = (fundamental + harmonic) * envelope / Config::Owl::toneMixDivisor;
+            uint8_t tremolo = 224 + sineSignal(owlVibratoPhase)
+                / Config::Owl::tremoloDepthDivisor;
+            sample = ((chorusTone * tremolo >> 8) + harmonic)
+                * envelope / Config::Owl::toneMixDivisor;
         }
         break;
     }
@@ -433,6 +441,7 @@ uint8_t AudioEngine::nextSample() {
             bellHighPartialDetune = 0;
             bellFourthPartialDetune = 0;
             owlPhase = 0;
+            owlChorusPhase = 0;
             owlVibratoPhase = 0;
         }
     }

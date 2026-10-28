@@ -37,8 +37,8 @@ The bell adds a fourth inharmonic partial, small randomized partial detunes on
 each strike, exponential ring-down, and a brief noise-and-tone strike transient.
 
 The owl uses paired, rounded hoots with a brief upward pitch inflection,
-downward glide, and subtle second-harmonic body; the second call is lower and
-lightly vibrato-modulated. No noise is mixed into the calls.
+downward glide, soft chorus, and subtle vibrato; the second call is lower.
+Noise is not mixed into the calls.
 
 Edit `include/config.h` to change the sensor/PWM pins, sample timing, sound
 durations, and per-sound tuning parameters. PlatformIO build and upload options
