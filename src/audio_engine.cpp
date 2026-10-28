@@ -340,7 +340,7 @@ uint8_t AudioEngine::nextSample() {
         if (!resonanceGain) sample += noise / Config::Door::idleNoiseDivisor;
         break;
     }
-    case Config::bellSound: { // A noisy strike excites inharmonic partials with exponential ring-down.
+    case Config::bellSound: { // A soft filtered strike excites inharmonic partials with exponential ring-down.
         if (position == 0) {
             bellFundamentalDetune = randomBellDetune();
             bellPartialDetune = randomBellDetune();
@@ -357,12 +357,19 @@ uint8_t AudioEngine::nextSample() {
             * Config::phaseIncrementScale;
         bellFourthPartialPhase += (Config::Bell::fourthPartialFrequency
             + bellFourthPartialDetune) * Config::phaseIncrementScale;
-        bellStrikePhase += Config::Bell::strikeToneFrequency
-            * Config::phaseIncrementScale;
+        uint8_t attack = position < Config::Bell::strikeAttackSamples
+            ? position << Config::Bell::strikeAttackGainShift
+            : 255;
         uint8_t fundamentalDecay = bellDecay(position, Config::Bell::fundamentalDecayShift);
         uint8_t partialDecay = bellDecay(position, Config::Bell::partialDecayShift);
         uint8_t highDecay = bellDecay(position, Config::Bell::highDecayShift);
         uint8_t fourthDecay = bellDecay(position, Config::Bell::fourthDecayShift);
+        if (position < Config::Bell::strikeAttackSamples) {
+            fundamentalDecay = (uint16_t)fundamentalDecay * attack >> 8;
+            partialDecay = (uint16_t)partialDecay * attack >> 8;
+            highDecay = (uint16_t)highDecay * attack >> 8;
+            fourthDecay = (uint16_t)fourthDecay * attack >> 8;
+        }
         sample = (sineSignal(bellFundamentalPhase) * fundamentalDecay
                 >> Config::Bell::fundamentalMixShift)
             + (sineSignal(bellPartialPhase) * partialDecay
@@ -372,13 +379,19 @@ uint8_t AudioEngine::nextSample() {
             + (sineSignal(bellFourthPartialPhase) * fourthDecay
                 >> Config::Bell::fourthPartialMixShift);
         if (position < Config::Bell::strikeNoiseSamples) {
-            sample += noise * (Config::Bell::strikeNoiseSamples - position) >> 9;
+            uint8_t noiseEnvelope = position < Config::Bell::strikeAttackSamples
+                ? position >> Config::Bell::strikeNoiseAttackShift
+                : (Config::Bell::strikeNoiseSamples - position)
+                    >> Config::Bell::strikeNoiseAttackShift;
+            sample += (pinkFast * noiseEnvelope) >> Config::Bell::strikeNoiseMixShift;
         }
         if (position < Config::Bell::strikeToneSamples) {
-            uint8_t strikeEnvelope = (Config::Bell::strikeToneSamples - position) * 10;
-            sample += sineSignal(bellStrikePhase) * strikeEnvelope
-                >> 10;
+            uint8_t strikeEnvelope = (Config::Bell::strikeToneSamples - position)
+                >> Config::Bell::strikeNoiseAttackShift;
+            sample += sineSignal(bellStrikePhase) * strikeEnvelope >> 6;
         }
+        bellStrikePhase += Config::Bell::strikeToneFrequency
+            * Config::phaseIncrementScale;
         break;
     }
     case Config::owlSound: { // Flash wavetable and interpolated contours shape soft, paired owl calls.

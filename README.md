@@ -34,7 +34,8 @@ The door effect layers three overlapping creaks with irregular pitch jitter,
 brief catches, and a short decaying metallic resonance.
 
 The bell adds a fourth inharmonic partial, small randomized partial detunes on
-each strike, exponential ring-down, and a brief noise-and-tone strike transient.
+each strike, exponential ring-down, and a softened filtered-noise/high-tone
+strike transient with a tapered onset.
 
 The owl uses a flash-resident harmonic wavetable and interpolated pitch and
 amplitude contours for longer, approximately 1.25-second calls, producing
