@@ -1,6 +1,7 @@
 #include <avr/pgmspace.h>
 #include "audio_engine.h"
 #include "config.h"
+#include "door_squeak_samples.h"
 #include "noise.h"
 
 namespace {
@@ -28,12 +29,6 @@ const int8_t owlWaveTable[64] PROGMEM = {
     115, 110, 104, 96, 87, 77, 67, 58, 48, 39, 31, 24, 18, 13, 8, 4,
     0, -4, -8, -13, -18, -24, -31, -39, -48, -58, -67, -77, -87, -96, -104, -110,
     -115, -118, -120, -119, -117, -113, -107, -99, -91, -81, -71, -60, -48, -36, -24, -12
-};
-const int8_t doorWaveTable[64] PROGMEM = {
-    0, 18, 36, 53, 68, 81, 92, 100, 105, 108, 109, 108, 106, 102, 97, 92,
-    86, 81, 76, 71, 67, 63, 59, 55, 50, 46, 41, 35, 29, 22, 15, 8,
-    0, -8, -15, -22, -29, -35, -41, -46, -50, -55, -59, -63, -67, -71, -76, -81,
-    -86, -92, -97, -102, -106, -108, -109, -108, -105, -100, -92, -81, -68, -53, -36, -18
 };
 const int8_t owlPitchContour[Config::Owl::contourEntryCount] PROGMEM = {
     32, 28, 24, 20, 16, 12, 8, 4, 0, -4, -8, -12, -16, -20, -24, -28,
@@ -63,13 +58,7 @@ uint16_t thunderRumblePhase = 0;
 uint16_t thunderSecondaryPhase = 0;
 uint16_t ghostPhase = 0;
 uint16_t ghostChorusPhase = 0;
-uint16_t squeakPhase = 0;
-uint16_t secondSqueakPhase = 0;
-uint16_t thirdSqueakPhase = 0;
-int16_t firstDoorPitchJitter = 0;
-int16_t secondDoorPitchJitter = 0;
-int16_t thirdDoorPitchJitter = 0;
-uint16_t doorResonancePhase = 0;
+uint32_t doorSamplePhase = 0;
 uint16_t bellFundamentalPhase = 0;
 uint16_t bellPartialPhase = 0;
 uint16_t bellHighPartialPhase = 0;
@@ -149,56 +138,21 @@ uint8_t thunderBoomGain(uint16_t position, uint16_t start) {
             >> Config::Thunder::boomDecayShift);
 }
 
-int16_t renderDoorCreak(
-    uint16_t position,
-    uint16_t start,
-    uint16_t end,
-    uint16_t baseFrequency,
-    uint16_t catchStart,
-    uint16_t catchEnd,
-    uint16_t &phase,
-    int16_t &pitchJitterState,
-    uint8_t &resonanceGain,
-    int16_t noise,
-    int16_t filteredNoise,
-    int16_t deepNoise
-) {
-    if (position < start || position >= end) {
+int16_t renderDoorSqueak() {
+    uint16_t index = doorSamplePhase >> 16;
+    if (index >= DOOR_SQUEAK_SAMPLE_COUNT) {
         return 0;
     }
 
-    uint16_t age = position - start;
-    if (!age) pitchJitterState = 0;
-    uint16_t edge = age;
-    uint16_t release = end - start - age;
-    if (release < edge) edge = release;
-    uint8_t envelope = edge < Config::Door::attackSamples
-        ? edge >> Config::Door::attackEnvelopeShift
-        : Config::Door::creakEnvelope;
-
-    pitchJitterState += (noise - pitchJitterState) >> Config::Door::jitterFilterShift;
-    int16_t jitter = pitchJitterState / Config::Door::pitchJitterDivisor
-        + filteredNoise / Config::Door::rawPitchJitterDivisor;
-    int16_t frequency = baseFrequency + (age >> Config::Door::pitchStepShift) + jitter;
-    if (frequency < 100) frequency = 100;
-    phase += (uint16_t)frequency * Config::phaseIncrementScale;
-
-    int16_t friction = filteredNoise - deepNoise;
-    int16_t body = (int8_t)pgm_read_byte(&doorWaveTable[phase >> 10]);
-    int16_t resonance = sineSignal(phase << 1)
-        >> Config::Door::resonanceMixShift;
-    int16_t creak = (body + resonance) * envelope / Config::Door::waveformScale
-        + friction * envelope / Config::Door::frictionScale;
-    if (age >= catchStart && age < catchEnd) {
-        creak >>= 3;
-    }
-
-    if (age < Config::Door::resonanceDecaySamples) {
-        uint16_t decay = Config::Door::resonanceDecaySamples - age;
-        uint8_t resonance = envelope * decay / Config::Door::resonanceDecaySamples;
-        if (resonance > resonanceGain) resonanceGain = resonance;
-    }
-    return creak;
+    uint8_t first = pgm_read_byte(&doorSqueakSamples[index]);
+    uint8_t second = index + 1 < DOOR_SQUEAK_SAMPLE_COUNT
+        ? pgm_read_byte(&doorSqueakSamples[index + 1])
+        : first;
+    uint16_t fraction = doorSamplePhase;
+    int16_t sample = (int16_t)first - 128
+        + ((int32_t)((int16_t)second - first) * fraction >> 16);
+    doorSamplePhase += Config::Door::phaseIncrement;
+    return sample;
 }
 
 void resetSequence() {
@@ -219,13 +173,7 @@ void resetSequence() {
     thunderSecondaryPhase = 0;
     ghostPhase = 0;
     ghostChorusPhase = 0;
-    squeakPhase = 0;
-    secondSqueakPhase = 0;
-    thirdSqueakPhase = 0;
-    firstDoorPitchJitter = 0;
-    secondDoorPitchJitter = 0;
-    thirdDoorPitchJitter = 0;
-    doorResonancePhase = 0;
+    doorSamplePhase = 0;
     bellFundamentalPhase = 0;
     bellPartialPhase = 0;
     bellHighPartialPhase = 0;
@@ -373,31 +321,8 @@ uint8_t AudioEngine::nextSample() {
             : crack + deepRumble + lowRumbleTone + rollingNoise;
         break;
     }
-    case Config::doorSound: { // Overlapping jittered creaks have brief catches and metallic ring.
-        uint8_t resonanceGain = 0;
-        sample = renderDoorCreak(position,
-                Config::Door::firstCreakStart, Config::Door::firstCreakEnd,
-                Config::Door::firstBaseFrequency,
-                Config::Door::firstCatchStart, Config::Door::firstCatchEnd,
-                squeakPhase, firstDoorPitchJitter, resonanceGain,
-                noise, filteredNoise, deepNoise)
-            + renderDoorCreak(position,
-                Config::Door::secondCreakStart, Config::Door::secondCreakEnd,
-                Config::Door::secondBaseFrequency,
-                Config::Door::secondCatchStart, Config::Door::secondCatchEnd,
-                secondSqueakPhase, secondDoorPitchJitter, resonanceGain,
-                noise, filteredNoise, deepNoise)
-            + renderDoorCreak(position,
-                Config::Door::thirdCreakStart, Config::Door::thirdCreakEnd,
-                Config::Door::thirdBaseFrequency,
-                Config::Door::thirdCatchStart, Config::Door::thirdCatchEnd,
-                thirdSqueakPhase, thirdDoorPitchJitter, resonanceGain,
-                noise, filteredNoise, deepNoise);
-        doorResonancePhase += Config::Door::resonanceFrequency
-            * Config::phaseIncrementScale;
-        sample += sineSignal(doorResonancePhase) * resonanceGain
-            / Config::Door::resonanceOutputDivisor;
-        if (!resonanceGain) sample += noise / Config::Door::idleNoiseDivisor;
+    case Config::doorSound: { // Play the recorded, flash-resident door squeak.
+        sample = renderDoorSqueak();
         break;
     }
     case Config::bellSound: { // A smooth attack excites inharmonic partials with exponential ring-down.
@@ -514,13 +439,7 @@ uint8_t AudioEngine::nextSample() {
             thunderSecondaryPhase = 0;
             ghostPhase = 0;
             ghostChorusPhase = 0;
-            squeakPhase = 0;
-            secondSqueakPhase = 0;
-            thirdSqueakPhase = 0;
-            firstDoorPitchJitter = 0;
-            secondDoorPitchJitter = 0;
-            thirdDoorPitchJitter = 0;
-            doorResonancePhase = 0;
+            doorSamplePhase = 0;
             bellFundamentalPhase = 0;
             bellPartialPhase = 0;
             bellHighPartialPhase = 0;
