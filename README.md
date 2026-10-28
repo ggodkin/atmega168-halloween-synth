@@ -14,10 +14,9 @@ Thunder uses a loud, 300-sample high-passed noise crack with an initial click,
 followed by a slow, fading rumble with three low-frequency gain swells.
 
 The oscillator uses a 64-entry quarter-wave sine table in flash. The sample
-rate remains 8 kHz: the compiled bell path calls the AVR 16-bit division helper
-six times. Those software divisions alone can exceed the approximately 725
-cycles available per sample at 11.025 kHz, so raising the rate requires
-optimizing the sound paths and rechecking the ISR budget.
+rate remains 8 kHz because some sound paths use AVR 16-bit division helpers.
+At 11.025 kHz, only about 725 cycles are available per sample, so raising the
+rate requires optimizing and rechecking the ISR budget.
 
 Noise combines an independent xorshift32 generator and a 16-bit Galois LFSR to
 produce a less repetitive white-noise source. Three parallel low-pass stages
@@ -33,6 +32,9 @@ gradual amplitude decay across its sound slot.
 
 The door effect layers three overlapping creaks with irregular pitch jitter,
 brief catches, and a short decaying metallic resonance.
+
+The bell adds a fourth inharmonic partial, small randomized partial detunes on
+each strike, exponential ring-down, and a brief noise-and-tone strike transient.
 
 Edit `include/config.h` to change the sensor/PWM pins, sample timing, sound
 durations, and per-sound tuning parameters. PlatformIO build and upload options

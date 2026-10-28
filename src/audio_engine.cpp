@@ -11,6 +11,10 @@ const uint8_t sineQuarterWave[64] PROGMEM = {
     91, 93, 95, 97, 99, 101, 103, 105, 107, 108, 110, 112, 113, 114, 116, 117,
     118, 119, 120, 121, 122, 123, 124, 124, 125, 126, 126, 126, 127, 127, 127, 127
 };
+const uint8_t bellExponentialDecay[16] PROGMEM = {
+    255, 218, 187, 160, 137, 117, 100, 86,
+    74, 63, 54, 46, 39, 33, 28, 24
+};
 
 int16_t filteredNoise = 0;
 int16_t deepNoise = 0;
@@ -32,6 +36,12 @@ uint16_t doorResonancePhase = 0;
 uint16_t bellFundamentalPhase = 0;
 uint16_t bellPartialPhase = 0;
 uint16_t bellHighPartialPhase = 0;
+uint16_t bellFourthPartialPhase = 0;
+uint16_t bellStrikePhase = 0;
+int8_t bellFundamentalDetune = 0;
+int8_t bellPartialDetune = 0;
+int8_t bellHighPartialDetune = 0;
+int8_t bellFourthPartialDetune = 0;
 uint16_t owlPhase = 0;
 // An 8-bit event request is atomic to consume from the audio ISR.
 volatile uint8_t triggerRequested = 0;
@@ -56,6 +66,16 @@ int16_t sineSignal(uint16_t phase) {
 
     int16_t value = pgm_read_byte(&sineQuarterWave[index]);
     return (quadrant & 2) ? -value : value;
+}
+
+uint8_t bellDecay(uint16_t position, uint8_t intervalShift) {
+    uint8_t index = position >> intervalShift;
+    if (index > 15) return 0;
+    return pgm_read_byte(&bellExponentialDecay[index]);
+}
+
+int8_t randomBellDetune() {
+    return (int8_t)(noise8() >> 5) - Config::Bell::randomDetuneRange;
 }
 
 uint8_t thunderBoomGain(uint16_t position, uint16_t start) {
@@ -139,6 +159,12 @@ void resetSequence() {
     bellFundamentalPhase = 0;
     bellPartialPhase = 0;
     bellHighPartialPhase = 0;
+    bellFourthPartialPhase = 0;
+    bellStrikePhase = 0;
+    bellFundamentalDetune = 0;
+    bellPartialDetune = 0;
+    bellHighPartialDetune = 0;
+    bellFourthPartialDetune = 0;
     owlPhase = 0;
     outputGain = 0;
 }
@@ -281,30 +307,44 @@ uint8_t AudioEngine::nextSample() {
         if (!resonanceGain) sample += noise / Config::Door::idleNoiseDivisor;
         break;
     }
-    case Config::bellSound: { // Inharmonic partials ring down at different rates after a noisy strike.
-        bellFundamentalPhase += Config::Bell::fundamentalFrequency
+    case Config::bellSound: { // A noisy strike excites inharmonic partials with exponential ring-down.
+        if (position == 0) {
+            bellFundamentalDetune = randomBellDetune();
+            bellPartialDetune = randomBellDetune();
+            bellHighPartialDetune = randomBellDetune();
+            bellFourthPartialDetune = randomBellDetune();
+        }
+        bellFundamentalPhase += (Config::Bell::fundamentalFrequency
+            + bellFundamentalDetune)
             * Config::phaseIncrementScale;
-        bellPartialPhase += Config::Bell::partialFrequency
+        bellPartialPhase += (Config::Bell::partialFrequency + bellPartialDetune)
             * Config::phaseIncrementScale;
-        bellHighPartialPhase += Config::Bell::highPartialFrequency
+        bellHighPartialPhase += (Config::Bell::highPartialFrequency
+            + bellHighPartialDetune)
             * Config::phaseIncrementScale;
-        uint8_t fundamentalDecay = position < Config::Bell::fundamentalDecaySamples
-            ? 255 - position / Config::Bell::fundamentalDecayDivisor
-            : 0;
-        uint8_t partialDecay = position < Config::Bell::partialDecaySamples
-            ? Config::Bell::partialDecayBase - position / Config::Bell::partialDecayDivisor
-            : Config::Bell::partialDecayFloor;
-        uint8_t highDecay = position < Config::Bell::highDecaySamples
-            ? Config::Bell::highDecayBase - position / Config::Bell::highDecayDivisor
-            : Config::Bell::highDecayFloor;
-        sample = sineSignal(bellFundamentalPhase) * fundamentalDecay
-                / Config::Bell::fundamentalMixDivisor
-            + sineSignal(bellPartialPhase) * partialDecay / Config::Bell::partialMixDivisor
-            + sineSignal(bellHighPartialPhase) * highDecay
-                / Config::Bell::highPartialMixDivisor;
-        if (position < Config::Bell::strikeSamples) {
-            sample += noise * (Config::Bell::strikeSamples - position)
-                / Config::Bell::strikeSamples;
+        bellFourthPartialPhase += (Config::Bell::fourthPartialFrequency
+            + bellFourthPartialDetune) * Config::phaseIncrementScale;
+        bellStrikePhase += Config::Bell::strikeToneFrequency
+            * Config::phaseIncrementScale;
+        uint8_t fundamentalDecay = bellDecay(position, Config::Bell::fundamentalDecayShift);
+        uint8_t partialDecay = bellDecay(position, Config::Bell::partialDecayShift);
+        uint8_t highDecay = bellDecay(position, Config::Bell::highDecayShift);
+        uint8_t fourthDecay = bellDecay(position, Config::Bell::fourthDecayShift);
+        sample = (sineSignal(bellFundamentalPhase) * fundamentalDecay
+                >> Config::Bell::fundamentalMixShift)
+            + (sineSignal(bellPartialPhase) * partialDecay
+                >> Config::Bell::partialMixShift)
+            + (sineSignal(bellHighPartialPhase) * highDecay
+                >> Config::Bell::highPartialMixShift)
+            + (sineSignal(bellFourthPartialPhase) * fourthDecay
+                >> Config::Bell::fourthPartialMixShift);
+        if (position < Config::Bell::strikeNoiseSamples) {
+            sample += noise * (Config::Bell::strikeNoiseSamples - position) >> 9;
+        }
+        if (position < Config::Bell::strikeToneSamples) {
+            uint8_t strikeEnvelope = (Config::Bell::strikeToneSamples - position) * 10;
+            sample += sineSignal(bellStrikePhase) * strikeEnvelope
+                >> 10;
         }
         break;
     }
@@ -342,10 +382,13 @@ uint8_t AudioEngine::nextSample() {
     }
     }
 
+    uint16_t fadeSamples = sound == Config::bellSound
+        ? Config::Bell::fadeSamples
+        : Config::soundFadeSamples;
     uint8_t fade = 255;
-    if (position < Config::soundFadeSamples) {
+    if (position < fadeSamples) {
         fade = position;
-    } else if (position >= activeSoundSamples - Config::soundFadeSamples) {
+    } else if (position >= activeSoundSamples - fadeSamples) {
         fade = activeSoundSamples - 1 - position;
     }
     sample = (sample * fade) >> 8;
@@ -368,6 +411,12 @@ uint8_t AudioEngine::nextSample() {
             bellFundamentalPhase = 0;
             bellPartialPhase = 0;
             bellHighPartialPhase = 0;
+            bellFourthPartialPhase = 0;
+            bellStrikePhase = 0;
+            bellFundamentalDetune = 0;
+            bellPartialDetune = 0;
+            bellHighPartialDetune = 0;
+            bellFourthPartialDetune = 0;
             owlPhase = 0;
         }
     }

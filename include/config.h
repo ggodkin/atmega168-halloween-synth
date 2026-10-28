@@ -135,20 +135,20 @@ namespace Bell {
 constexpr uint16_t fundamentalFrequency = 587;
 constexpr uint16_t partialFrequency = 987;
 constexpr uint16_t highPartialFrequency = 1571;
-constexpr uint16_t fundamentalDecaySamples = samplesFromReferenceRate(28000);
-constexpr uint16_t fundamentalDecayDivisor = samplesFromReferenceRate(110);
-constexpr uint16_t partialDecaySamples = samplesFromReferenceRate(18000);
-constexpr uint16_t partialDecayDivisor = samplesFromReferenceRate(100);
-constexpr uint16_t highDecaySamples = samplesFromReferenceRate(9000);
-constexpr uint16_t highDecayDivisor = samplesFromReferenceRate(60);
-constexpr uint16_t strikeSamples = samplesFromReferenceRate(120);
-constexpr uint8_t partialDecayBase = 190;
-constexpr uint8_t partialDecayFloor = 10;
-constexpr uint8_t highDecayBase = 160;
-constexpr uint8_t highDecayFloor = 10;
-constexpr uint16_t fundamentalMixDivisor = 420;
-constexpr uint16_t partialMixDivisor = 600;
-constexpr uint16_t highPartialMixDivisor = 700;
+constexpr uint16_t fourthPartialFrequency = 2137;
+constexpr uint8_t fundamentalDecayShift = 11;
+constexpr uint8_t partialDecayShift = 10;
+constexpr uint8_t highDecayShift = 9;
+constexpr uint8_t fourthDecayShift = 8;
+constexpr uint8_t strikeNoiseSamples = samplesFromReferenceRate(96);
+constexpr uint8_t strikeToneSamples = samplesFromReferenceRate(24);
+constexpr uint16_t strikeToneFrequency = 3200;
+constexpr uint8_t randomDetuneRange = 4;
+constexpr uint16_t fadeSamples = samplesFromReferenceRate(32);
+constexpr uint8_t fundamentalMixShift = 9;
+constexpr uint8_t partialMixShift = 9;
+constexpr uint8_t highPartialMixShift = 10;
+constexpr uint8_t fourthPartialMixShift = 10;
 }
 
 namespace Owl {
