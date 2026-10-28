@@ -3,14 +3,15 @@
 Bare-metal AVR firmware for an ATmega168 at 8 MHz; no Arduino framework is
 required. Connect the RCWL-0516 VCC to a suitable 5 V supply, GND to board GND,
 and OUT to PD2 (Arduino D2). A low-to-high transition starts one complete
-sequence: wind, ghost, thunder, door squeak, bell, and owl, four seconds each.
+sequence: wind and ghost (four seconds each), thunder (three seconds), then
+door squeak, bell, and owl (four seconds each).
 If OUT is already HIGH at startup, it starts the first sequence. Sensor
 transitions during playback are ignored; another sequence can start only after
 completion and a new low-to-high transition. Audio is output as 31.25 kHz PWM
 on PD6/OC0A, updated at 8 kHz.
 
-Thunder uses a short filtered-noise crack followed by a slow, fading rumble
-with three low-frequency gain swells.
+Thunder uses a loud, 300-sample high-passed noise crack with an initial click,
+followed by a slow, fading rumble with three low-frequency gain swells.
 
 The oscillator uses a 64-entry quarter-wave sine table in flash. The sample
 rate remains 8 kHz: the compiled bell path calls the AVR 16-bit division helper

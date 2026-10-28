@@ -132,6 +132,7 @@ uint8_t AudioEngine::nextSample() {
     deepNoise += (filteredNoise - deepNoise) >> Config::deepNoiseShift;
 
     uint16_t position = soundSample;
+    uint16_t activeSoundSamples = Config::samplesForSound(sound);
     int16_t sample = 0;
 
     switch (sound) {
@@ -194,12 +195,14 @@ uint8_t AudioEngine::nextSample() {
         int16_t lowRumbleTone = triangleSignal(modulationPhase)
             / Config::Thunder::rumbleToneDivisor * rumbleDecay
             / Config::Thunder::rumbleOutputDivisor;
+        int16_t highPassedNoise = noise - pinkFast;
         int16_t crack = position < Config::Thunder::crackSamples
-            ? filteredNoise * ((Config::Thunder::crackSamples - position)
-                >> Config::Thunder::crackLevelDivisor)
+            ? highPassedNoise * ((Config::Thunder::crackSamples - position)
+                >> Config::Thunder::crackLevelShift)
                 / Config::Thunder::crackScale
             : 0;
-        sample = crack + deepRumble + lowRumbleTone;
+        int16_t click = position == 0 ? Config::Thunder::crackClickLevel : 0;
+        sample = position == 0 ? click : crack + deepRumble + lowRumbleTone;
         break;
     }
     case Config::doorSound: { // Narrow pitch movement plus friction noise makes a hinge creak, not a siren.
@@ -299,12 +302,12 @@ uint8_t AudioEngine::nextSample() {
     uint8_t fade = 255;
     if (position < Config::soundFadeSamples) {
         fade = position;
-    } else if (position >= Config::samplesPerSound - Config::soundFadeSamples) {
-        fade = Config::samplesPerSound - 1 - position;
+    } else if (position >= activeSoundSamples - Config::soundFadeSamples) {
+        fade = activeSoundSamples - 1 - position;
     }
     sample = (sample * fade) >> 8;
 
-    if (++soundSample == Config::samplesPerSound) {
+    if (++soundSample == activeSoundSamples) {
         soundSample = 0;
         if (sound + 1 == Config::soundCount) {
             sequencePlaying = 0;

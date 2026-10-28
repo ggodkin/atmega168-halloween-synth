@@ -33,6 +33,10 @@ enum Sound : uint8_t {
     owlSound
 };
 constexpr uint8_t soundCount = owlSound + 1;
+constexpr uint16_t thunderDurationSamples = samplesFromReferenceRate(24000);
+constexpr uint16_t samplesForSound(uint8_t sound) {
+    return sound == thunderSound ? thunderDurationSamples : samplesPerSound;
+}
 
 namespace PinkNoise {
 constexpr uint8_t fastFilterShift = 2;
@@ -77,11 +81,12 @@ constexpr uint8_t toneDivisor = 4;
 
 namespace Thunder {
 constexpr uint16_t rumblePhaseStep = samplesFromReferenceRate(3);
-constexpr uint16_t rumbleDecaySamples = samplesFromReferenceRate(30000);
-constexpr uint16_t rumbleDecayDivisor = samplesFromReferenceRate(118);
-constexpr uint16_t crackSamples = samplesFromReferenceRate(320);
-constexpr uint16_t crackScale = 80;
-constexpr uint8_t crackLevelDivisor = 2;
+constexpr uint16_t rumbleDecaySamples = thunderDurationSamples;
+constexpr uint16_t rumbleDecayDivisor = samplesFromReferenceRate(94);
+constexpr uint16_t crackSamples = samplesFromReferenceRate(300);
+constexpr uint16_t crackScale = 50;
+constexpr uint8_t crackLevelShift = 2;
+constexpr uint8_t crackClickLevel = 110;
 constexpr uint8_t rumbleToneDivisor = 4;
 constexpr uint8_t rumbleGainDivisor = 32;
 constexpr int16_t rumbleOutputDivisor = 256;
@@ -94,7 +99,7 @@ constexpr uint8_t boomAttackShift = 4;
 constexpr uint8_t boomDecayShift = 5;
 constexpr uint16_t firstBoomStart = samplesFromReferenceRate(2000);
 constexpr uint16_t secondBoomStart = samplesFromReferenceRate(12000);
-constexpr uint16_t thirdBoomStart = samplesFromReferenceRate(22000);
+constexpr uint16_t thirdBoomStart = samplesFromReferenceRate(18000);
 }
 
 namespace Door {
