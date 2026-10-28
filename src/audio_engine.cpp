@@ -15,6 +15,20 @@ const uint8_t bellExponentialDecay[16] PROGMEM = {
     255, 218, 187, 160, 137, 117, 100, 86,
     74, 63, 54, 46, 39, 33, 28, 24
 };
+const int8_t owlWaveTable[64] PROGMEM = {
+    0, 12, 24, 36, 48, 60, 71, 81, 91, 99, 107, 113, 117, 119, 120, 118,
+    115, 110, 104, 96, 87, 77, 67, 58, 48, 39, 31, 24, 18, 13, 8, 4,
+    0, -4, -8, -13, -18, -24, -31, -39, -48, -58, -67, -77, -87, -96, -104, -110,
+    -115, -118, -120, -119, -117, -113, -107, -99, -91, -81, -71, -60, -48, -36, -24, -12
+};
+const int8_t owlPitchContour[Config::Owl::contourEntryCount] PROGMEM = {
+    32, 28, 20, 10, 0, -10, -20, -30, -40, -50, -60, -70, -80, -90,
+    -100, -105, -110, -108, -104, -98, -90, -80, -68, -54, -40, -28, -16, -6
+};
+const int8_t owlLevelContour[Config::Owl::contourEntryCount] PROGMEM = {
+    0, 16, 40, 76, 105, 120, 127, 127, 124, 118, 110, 100, 88, 76,
+    64, 53, 43, 34, 27, 21, 16, 12, 9, 6, 4, 2, 1, 0
+};
 
 int16_t filteredNoise = 0;
 int16_t deepNoise = 0;
@@ -68,6 +82,19 @@ int16_t sineSignal(uint16_t phase) {
 
     int16_t value = pgm_read_byte(&sineQuarterWave[index]);
     return (quadrant & 2) ? -value : value;
+}
+
+int16_t interpolateOwlContour(const int8_t *table, uint16_t position) {
+    uint8_t index = position >> Config::Owl::contourStepShift;
+    if (index >= Config::Owl::contourEntryCount - 1) {
+        return (int8_t)pgm_read_byte(&table[Config::Owl::contourEntryCount - 1]);
+    }
+
+    uint8_t fraction = position & ((1 << Config::Owl::contourStepShift) - 1);
+    int8_t first = (int8_t)pgm_read_byte(&table[index]);
+    int8_t second = (int8_t)pgm_read_byte(&table[index + 1]);
+    return first + ((int16_t)(second - first) * fraction
+        >> Config::Owl::contourStepShift);
 }
 
 uint8_t bellDecay(uint16_t position, uint8_t intervalShift) {
@@ -352,7 +379,7 @@ uint8_t AudioEngine::nextSample() {
         }
         break;
     }
-    case Config::owlSound: { // Paired, softly chorused hoots use a rounded rise-and-fall contour.
+    case Config::owlSound: { // Flash wavetable and interpolated contours shape soft, paired owl calls.
         uint16_t cycle = position % Config::Owl::cycleSamples;
         uint16_t hootPosition = 0;
         bool hooting = false;
@@ -369,37 +396,30 @@ uint8_t AudioEngine::nextSample() {
 
         if (hooting) {
             int16_t frequency = Config::Owl::baseFrequency
-                - (hootPosition >> Config::Owl::pitchGlideShift);
-            if (hootPosition < Config::Owl::pitchRiseSamples) {
-                frequency += hootPosition >> Config::Owl::pitchRiseShift;
-            }
-            if (secondHoot) {
-                frequency -= Config::Owl::secondHootOffset;
-            }
+                + interpolateOwlContour(owlPitchContour, hootPosition);
+            if (secondHoot) frequency -= Config::Owl::secondHootOffset;
             owlVibratoPhase += Config::Owl::vibratoPhaseStep;
             frequency += sineSignal(owlVibratoPhase) / Config::Owl::vibratoDivisor;
-            if (frequency < 180) frequency = 180;
+            if (frequency < 200) frequency = 200;
             owlPhase += frequency * Config::phaseIncrementScale;
             owlChorusPhase += (frequency + Config::Owl::chorusDetuneHz)
                 * Config::phaseIncrementScale;
-            uint8_t envelope;
-            if (hootPosition < Config::Owl::attackSamples) {
-                envelope = hootPosition >> Config::Owl::attackEnvelopeShift;
-            } else {
-                uint16_t decay = (hootPosition - Config::Owl::attackSamples)
-                    >> Config::Owl::decayEnvelopeShift;
-                envelope = decay < Config::Owl::envelopeLevel
-                    ? Config::Owl::envelopeLevel - decay
-                    : 0;
-            }
-            int16_t chorusTone = (sineSignal(owlPhase) * Config::Owl::chorusMainWeight
-                + sineSignal(owlChorusPhase)) / (Config::Owl::chorusMainWeight + 1);
-            int16_t harmonic = sineSignal(owlPhase << 1)
-                >> Config::Owl::harmonicMixShift;
+            int16_t envelope = interpolateOwlContour(owlLevelContour, hootPosition);
+            int16_t waveform = (int8_t)pgm_read_byte(&owlWaveTable[owlPhase >> 10]);
+            int16_t tone = (waveform * Config::Owl::chorusMainWeight
+                + sineSignal(owlChorusPhase))
+                / (Config::Owl::chorusMainWeight + 1);
             uint8_t tremolo = 224 + sineSignal(owlVibratoPhase)
                 / Config::Owl::tremoloDepthDivisor;
-            sample = ((chorusTone * tremolo >> 8) + harmonic)
-                * envelope / Config::Owl::toneMixDivisor;
+            sample = (tone * tremolo >> 8) * envelope
+                >> Config::Owl::levelScaleShift;
+            if (hootPosition < Config::Owl::breathSamples) {
+                uint16_t remainingBreath = Config::Owl::breathSamples - hootPosition;
+                int16_t breathEnvelope = envelope * remainingBreath
+                    >> Config::Owl::contourStepShift;
+                sample += (filteredNoise * breathEnvelope)
+                    >> Config::Owl::breathMixShift;
+            }
         }
         break;
     }
