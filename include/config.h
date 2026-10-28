@@ -152,14 +152,14 @@ constexpr uint8_t fourthPartialMixShift = 10;
 }
 
 namespace Owl {
-constexpr uint16_t cycleSamples = samplesFromReferenceRate(8500);
+constexpr uint16_t cycleSamples = samplesFromReferenceRate(9500);
 constexpr uint16_t firstHootStart = samplesFromReferenceRate(250);
-constexpr uint16_t firstHootEnd = samplesFromReferenceRate(3750);
-constexpr uint16_t secondHootStart = samplesFromReferenceRate(4200);
-constexpr uint16_t secondHootEnd = samplesFromReferenceRate(7700);
-constexpr uint8_t contourEntryCount = 28;
+constexpr uint16_t firstHootEnd = samplesFromReferenceRate(4250);
+constexpr uint16_t secondHootStart = samplesFromReferenceRate(4700);
+constexpr uint16_t secondHootEnd = samplesFromReferenceRate(8700);
+constexpr uint8_t contourEntryCount = 32;
 constexpr uint8_t contourStepShift = 7;
-constexpr uint16_t baseFrequency = 620;
+constexpr uint16_t baseFrequency = 520;
 constexpr uint8_t secondHootOffset = 35;
 constexpr uint8_t chorusDetuneHz = 3;
 constexpr uint8_t chorusMainWeight = 3;

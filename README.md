@@ -37,8 +37,9 @@ The bell adds a fourth inharmonic partial, small randomized partial detunes on
 each strike, exponential ring-down, and a brief noise-and-tone strike transient.
 
 The owl uses a flash-resident harmonic wavetable and interpolated pitch and
-amplitude contours for paired calls. A very soft filtered-noise breath fades
-in and out at each call's onset.
+amplitude contours for paired, approximately 500 ms calls. A very soft
+filtered-noise breath fades in and out at each call's onset, while the
+lower-pitched tone follows a gradual, extended decay.
 
 Edit `include/config.h` to change the sensor/PWM pins, sample timing, sound
 durations, and per-sound tuning parameters. PlatformIO build and upload options
