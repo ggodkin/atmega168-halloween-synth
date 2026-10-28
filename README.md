@@ -30,8 +30,8 @@ configurable in `include/config.h`.
 The ghost combines two slightly detuned voices, vibrato-locked tremolo, and a
 gradual amplitude decay across its sound slot.
 
-The door effect layers three overlapping creaks with irregular pitch jitter,
-brief catches, and a short decaying metallic resonance.
+The door effect layers three overlapping, harmonically rich creaks with
+smoothed irregular pitch movement, brief catches, and metallic resonance.
 
 The bell adds a fourth inharmonic partial, small randomized partial detunes on
 each strike and exponential ring-down. Its partials now fade in over a smooth
