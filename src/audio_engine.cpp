@@ -350,7 +350,7 @@ uint8_t AudioEngine::nextSample() {
         }
         break;
     }
-    case Config::owlSound: { // Paired owl hoots use a breathy attack and a rounded falling contour.
+    case Config::owlSound: { // Paired clean-tone hoots descend in pitch, with a softer second call.
         uint16_t cycle = position % Config::Owl::cycleSamples;
         uint16_t hootPosition = 0;
         bool hooting = false;
@@ -366,13 +366,10 @@ uint8_t AudioEngine::nextSample() {
         }
 
         if (hooting) {
-            uint16_t contour = hootPosition < Config::Owl::pitchPeakSample
-                ? hootPosition
-                : (Config::Owl::firstHootEnd - Config::Owl::firstHootStart) - hootPosition;
             int16_t frequency = Config::Owl::baseFrequency
-                + (contour >> Config::Owl::pitchStepShift);
+                - (hootPosition >> Config::Owl::pitchGlideShift);
             if (secondHoot) {
-                frequency -= hootPosition >> Config::Owl::secondGlideShift;
+                frequency -= Config::Owl::secondHootOffset;
                 owlVibratoPhase += Config::Owl::vibratoPhaseStep;
                 frequency += sineSignal(owlVibratoPhase) / Config::Owl::vibratoDivisor;
             }
@@ -385,17 +382,7 @@ uint8_t AudioEngine::nextSample() {
             uint8_t envelope = edge < Config::Owl::envelopeRampSamples
                 ? edge >> Config::Owl::envelopeShift
                 : Config::Owl::envelopeLevel;
-            int16_t breathNoise = 0;
-            if (hootPosition < Config::Owl::attackSamples) {
-                uint16_t breathEdge = hootPosition;
-                uint16_t breathRelease = Config::Owl::attackSamples - hootPosition;
-                if (breathRelease < breathEdge) breathEdge = breathRelease;
-                breathNoise = filteredNoise
-                    * (breathEdge >> Config::Owl::breathNoiseTimeShift)
-                    >> Config::Owl::breathNoiseMixShift;
-            }
-            sample = sineSignal(owlPhase) * envelope / Config::Owl::toneMixDivisor
-                + breathNoise + noise / Config::Owl::noiseScale;
+            sample = sineSignal(owlPhase) * envelope / Config::Owl::toneMixDivisor;
         }
         break;
     }
