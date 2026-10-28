@@ -31,6 +31,9 @@ configurable in `include/config.h`.
 The ghost combines two slightly detuned voices, vibrato-locked tremolo, and a
 gradual amplitude decay across its sound slot.
 
+The door effect layers three overlapping creaks with irregular pitch jitter,
+brief catches, and a short decaying metallic resonance.
+
 Edit `include/config.h` to change the sensor/PWM pins, sample timing, sound
 durations, and per-sound tuning parameters. PlatformIO build and upload options
 remain in `platformio.ini`.

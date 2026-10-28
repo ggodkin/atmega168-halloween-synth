@@ -103,18 +103,32 @@ constexpr uint16_t thirdBoomStart = samplesFromReferenceRate(18000);
 }
 
 namespace Door {
-constexpr uint16_t firstCreakStart = samplesFromReferenceRate(1800);
-constexpr uint16_t firstCreakEnd = samplesFromReferenceRate(7800);
-constexpr uint16_t secondCreakStart = samplesFromReferenceRate(12000);
-constexpr uint16_t secondCreakEnd = samplesFromReferenceRate(20000);
+constexpr uint16_t firstCreakStart = samplesFromReferenceRate(2200);
+constexpr uint16_t firstCreakEnd = samplesFromReferenceRate(8700);
+constexpr uint16_t secondCreakStart = samplesFromReferenceRate(6800);
+constexpr uint16_t secondCreakEnd = samplesFromReferenceRate(14000);
+constexpr uint16_t thirdCreakStart = samplesFromReferenceRate(13800);
+constexpr uint16_t thirdCreakEnd = samplesFromReferenceRate(19800);
 constexpr uint16_t attackSamples = samplesFromReferenceRate(640);
 constexpr uint8_t creakEnvelope = 20;
-constexpr uint16_t baseFrequency = 620;
+constexpr uint16_t firstBaseFrequency = 570;
+constexpr uint16_t secondBaseFrequency = 650;
+constexpr uint16_t thirdBaseFrequency = 720;
 constexpr uint8_t pitchStepShift = 6;
-constexpr uint8_t pitchJitterDivisor = 8;
+constexpr uint8_t pitchJitterDivisor = 4;
+constexpr uint8_t rawPitchJitterDivisor = 10;
 constexpr uint8_t attackEnvelopeShift = 5;
 constexpr int16_t waveformScale = 48;
 constexpr uint8_t idleNoiseDivisor = 24;
+constexpr uint16_t firstCatchStart = samplesFromReferenceRate(2400);
+constexpr uint16_t firstCatchEnd = samplesFromReferenceRate(2560);
+constexpr uint16_t secondCatchStart = samplesFromReferenceRate(1800);
+constexpr uint16_t secondCatchEnd = samplesFromReferenceRate(1940);
+constexpr uint16_t thirdCatchStart = samplesFromReferenceRate(3100);
+constexpr uint16_t thirdCatchEnd = samplesFromReferenceRate(3260);
+constexpr uint16_t resonanceFrequency = 2350;
+constexpr uint16_t resonanceDecaySamples = samplesFromReferenceRate(900);
+constexpr uint8_t resonanceOutputDivisor = 200;
 }
 
 namespace Bell {

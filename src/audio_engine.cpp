@@ -26,6 +26,9 @@ uint16_t slowGustPhase = 0;
 uint16_t ghostPhase = 0;
 uint16_t ghostChorusPhase = 0;
 uint16_t squeakPhase = 0;
+uint16_t secondSqueakPhase = 0;
+uint16_t thirdSqueakPhase = 0;
+uint16_t doorResonancePhase = 0;
 uint16_t bellFundamentalPhase = 0;
 uint16_t bellPartialPhase = 0;
 uint16_t bellHighPartialPhase = 0;
@@ -69,6 +72,52 @@ uint8_t thunderBoomGain(uint16_t position, uint16_t start) {
             >> Config::Thunder::boomDecayShift);
 }
 
+int16_t renderDoorCreak(
+    uint16_t position,
+    uint16_t start,
+    uint16_t end,
+    uint16_t baseFrequency,
+    uint16_t catchStart,
+    uint16_t catchEnd,
+    uint16_t &phase,
+    uint8_t &resonanceGain,
+    int16_t noise,
+    int16_t filteredNoise,
+    int16_t deepNoise
+) {
+    if (position < start || position >= end) {
+        return 0;
+    }
+
+    uint16_t age = position - start;
+    uint16_t edge = age;
+    uint16_t release = end - start - age;
+    if (release < edge) edge = release;
+    uint8_t envelope = edge < Config::Door::attackSamples
+        ? edge >> Config::Door::attackEnvelopeShift
+        : Config::Door::creakEnvelope;
+
+    int16_t jitter = filteredNoise / Config::Door::pitchJitterDivisor
+        + noise / Config::Door::rawPitchJitterDivisor;
+    int16_t frequency = baseFrequency + (age >> Config::Door::pitchStepShift) + jitter;
+    if (frequency < 100) frequency = 100;
+    phase += (uint16_t)frequency * Config::phaseIncrementScale;
+
+    int16_t friction = filteredNoise - deepNoise;
+    int16_t creak = triangleSignal(phase) * envelope / Config::Door::waveformScale
+        + friction * envelope / Config::Door::waveformScale;
+    if (age >= catchStart && age < catchEnd) {
+        creak >>= 3;
+    }
+
+    if (age < Config::Door::resonanceDecaySamples) {
+        uint16_t decay = Config::Door::resonanceDecaySamples - age;
+        uint8_t resonance = envelope * decay / Config::Door::resonanceDecaySamples;
+        if (resonance > resonanceGain) resonanceGain = resonance;
+    }
+    return creak;
+}
+
 void resetSequence() {
     filteredNoise = 0;
     deepNoise = 0;
@@ -84,6 +133,9 @@ void resetSequence() {
     ghostPhase = 0;
     ghostChorusPhase = 0;
     squeakPhase = 0;
+    secondSqueakPhase = 0;
+    thirdSqueakPhase = 0;
+    doorResonancePhase = 0;
     bellFundamentalPhase = 0;
     bellPartialPhase = 0;
     bellHighPartialPhase = 0;
@@ -205,37 +257,28 @@ uint8_t AudioEngine::nextSample() {
         sample = position == 0 ? click : crack + deepRumble + lowRumbleTone;
         break;
     }
-    case Config::doorSound: { // Narrow pitch movement plus friction noise makes a hinge creak, not a siren.
-        uint16_t squeakPosition = 0;
-        uint16_t squeakDuration = 0;
-        if (position >= Config::Door::firstCreakStart
-            && position < Config::Door::firstCreakEnd) {
-            squeakPosition = position - Config::Door::firstCreakStart;
-            squeakDuration = Config::Door::firstCreakEnd - Config::Door::firstCreakStart;
-        } else if (position >= Config::Door::secondCreakStart
-            && position < Config::Door::secondCreakEnd) {
-            squeakPosition = position - Config::Door::secondCreakStart;
-            squeakDuration = Config::Door::secondCreakEnd - Config::Door::secondCreakStart;
-        }
-
-        if (squeakDuration) {
-            uint16_t edge = squeakPosition;
-            uint16_t release = squeakDuration - squeakPosition;
-            if (release < edge) edge = release;
-            uint8_t envelope = edge < Config::Door::attackSamples
-                ? edge >> Config::Door::attackEnvelopeShift
-                : Config::Door::creakEnvelope;
-            int16_t pitchJitter = filteredNoise / Config::Door::pitchJitterDivisor;
-            uint16_t frequency = Config::Door::baseFrequency
-                + (squeakPosition >> Config::Door::pitchStepShift)
-                + pitchJitter;
-            squeakPhase += frequency * Config::phaseIncrementScale;
-            int16_t friction = filteredNoise - deepNoise;
-            sample = triangleSignal(squeakPhase) * envelope / Config::Door::waveformScale
-                + friction * envelope / Config::Door::waveformScale;
-        } else {
-            sample = noise / Config::Door::idleNoiseDivisor;
-        }
+    case Config::doorSound: { // Overlapping jittered creaks have brief catches and metallic ring.
+        uint8_t resonanceGain = 0;
+        sample = renderDoorCreak(position,
+                Config::Door::firstCreakStart, Config::Door::firstCreakEnd,
+                Config::Door::firstBaseFrequency,
+                Config::Door::firstCatchStart, Config::Door::firstCatchEnd,
+                squeakPhase, resonanceGain, noise, filteredNoise, deepNoise)
+            + renderDoorCreak(position,
+                Config::Door::secondCreakStart, Config::Door::secondCreakEnd,
+                Config::Door::secondBaseFrequency,
+                Config::Door::secondCatchStart, Config::Door::secondCatchEnd,
+                secondSqueakPhase, resonanceGain, noise, filteredNoise, deepNoise)
+            + renderDoorCreak(position,
+                Config::Door::thirdCreakStart, Config::Door::thirdCreakEnd,
+                Config::Door::thirdBaseFrequency,
+                Config::Door::thirdCatchStart, Config::Door::thirdCatchEnd,
+                thirdSqueakPhase, resonanceGain, noise, filteredNoise, deepNoise);
+        doorResonancePhase += Config::Door::resonanceFrequency
+            * Config::phaseIncrementScale;
+        sample += sineSignal(doorResonancePhase) * resonanceGain
+            / Config::Door::resonanceOutputDivisor;
+        if (!resonanceGain) sample += noise / Config::Door::idleNoiseDivisor;
         break;
     }
     case Config::bellSound: { // Inharmonic partials ring down at different rates after a noisy strike.
@@ -319,6 +362,9 @@ uint8_t AudioEngine::nextSample() {
             ghostPhase = 0;
             ghostChorusPhase = 0;
             squeakPhase = 0;
+            secondSqueakPhase = 0;
+            thirdSqueakPhase = 0;
+            doorResonancePhase = 0;
             bellFundamentalPhase = 0;
             bellPartialPhase = 0;
             bellHighPartialPhase = 0;
