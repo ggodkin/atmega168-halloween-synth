@@ -22,13 +22,14 @@ const int8_t owlWaveTable[64] PROGMEM = {
     -115, -118, -120, -119, -117, -113, -107, -99, -91, -81, -71, -60, -48, -36, -24, -12
 };
 const int8_t owlPitchContour[Config::Owl::contourEntryCount] PROGMEM = {
-    32, 28, 20, 10, 0, -10, -20, -30, -40, -50, -60, -70, -80, -90,
-    -100, -105, -110, -108, -104, -98, -90, -80, -68, -54, -40, -28, -16, -6,
-    -2, 0, 0, 0
+    32, 28, 24, 20, 16, 12, 8, 4, 0, -4, -8, -12, -16, -20, -24, -28,
+    -32, -36, -40, -44, -48, -52, -56, -60, -64, -68, -72, -76, -80, -84, -88, -92,
+    -96, -100, -104, -108, -110, -110, -110, -110
 };
 const int8_t owlLevelContour[Config::Owl::contourEntryCount] PROGMEM = {
-    0, 12, 32, 62, 90, 112, 124, 127, 127, 126, 124, 121, 117, 112, 106, 99,
-    91, 82, 72, 61, 50, 39, 29, 20, 13, 8, 4, 2, 1, 0, 0, 0
+    0, 8, 20, 40, 65, 88, 108, 122, 127, 127, 126, 124, 121, 117, 112, 106,
+    99, 91, 82, 72, 61, 50, 40, 32, 25, 19, 14, 10, 7, 5, 3, 2,
+    1, 1, 1, 1, 1, 0, 0, 0
 };
 
 int16_t filteredNoise = 0;
@@ -417,7 +418,7 @@ uint8_t AudioEngine::nextSample() {
             if (hootPosition < Config::Owl::breathSamples) {
                 uint16_t remainingBreath = Config::Owl::breathSamples - hootPosition;
                 int16_t breathEnvelope = envelope * remainingBreath
-                    >> Config::Owl::contourStepShift;
+                    >> Config::Owl::breathEnvelopeShift;
                 sample += (filteredNoise * breathEnvelope)
                     >> Config::Owl::breathMixShift;
             }

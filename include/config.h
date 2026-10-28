@@ -152,13 +152,13 @@ constexpr uint8_t fourthPartialMixShift = 10;
 }
 
 namespace Owl {
-constexpr uint16_t cycleSamples = samplesFromReferenceRate(9500);
+constexpr uint16_t cycleSamples = samplesFromReferenceRate(24000);
 constexpr uint16_t firstHootStart = samplesFromReferenceRate(250);
-constexpr uint16_t firstHootEnd = samplesFromReferenceRate(4250);
-constexpr uint16_t secondHootStart = samplesFromReferenceRate(4700);
-constexpr uint16_t secondHootEnd = samplesFromReferenceRate(8700);
-constexpr uint8_t contourEntryCount = 32;
-constexpr uint8_t contourStepShift = 7;
+constexpr uint16_t firstHootEnd = samplesFromReferenceRate(10250);
+constexpr uint16_t secondHootStart = samplesFromReferenceRate(11250);
+constexpr uint16_t secondHootEnd = samplesFromReferenceRate(21250);
+constexpr uint8_t contourEntryCount = 40;
+constexpr uint8_t contourStepShift = 8;
 constexpr uint16_t baseFrequency = 520;
 constexpr uint8_t secondHootOffset = 35;
 constexpr uint8_t chorusDetuneHz = 3;
@@ -168,7 +168,8 @@ constexpr uint16_t vibratoPhaseStep =
 constexpr uint8_t vibratoDivisor = 40;
 constexpr uint8_t tremoloDepthDivisor = 8;
 constexpr uint16_t breathSamples = samplesFromReferenceRate(512);
+constexpr uint8_t breathEnvelopeShift = 9;
 constexpr uint8_t levelScaleShift = 7;
-constexpr uint8_t breathMixShift = 11;
+constexpr uint8_t breathMixShift = 12;
 }
 }
