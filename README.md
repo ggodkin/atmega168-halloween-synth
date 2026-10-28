@@ -25,8 +25,9 @@ mix that source into a pink-noise approximation for the sound effects; their
 filter rates and mix weights are in `include/config.h`.
 
 Wind uses two overlapping gust rates and separate low-pass noise bands for
-slow air movement and higher-frequency hiss. Their rates and mix levels are
-configurable in `include/config.h`.
+slow air movement and higher-frequency hiss. Its corrected mix scaling makes
+the gust-shaped airflow clearly audible instead of leaving it as faint hiss.
+Gust rates and mix levels are configurable in `include/config.h`.
 
 The ghost combines two slightly detuned voices, vibrato-locked tremolo, and a
 gradual amplitude decay across its sound slot.

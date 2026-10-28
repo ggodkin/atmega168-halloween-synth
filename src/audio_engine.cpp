@@ -301,8 +301,7 @@ uint8_t AudioEngine::nextSample() {
         int16_t gustGain = Config::Wind::baseGain
             + (gust >> Config::Wind::fastGustDepthShift)
             + (slowGust >> Config::Wind::slowGustDepthShift);
-        sample = (windNoise / Config::Wind::windNoiseInputDivisor) * gustGain
-            / Config::Wind::mixDivisor;
+        sample = (int32_t)windNoise * gustGain >> Config::Wind::gustMixShift;
         break;
     }
     case Config::ghostSound: { // Slightly detuned, tremolo-modulated voices fade through the sound slot.

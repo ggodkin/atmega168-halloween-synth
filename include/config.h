@@ -53,7 +53,7 @@ constexpr uint16_t gustPhaseStep = samplesFromReferenceRate(4);
 constexpr uint16_t slowGustPhaseStep = samplesFromReferenceRate(1);
 constexpr uint8_t airFilterShift = 7;
 constexpr uint8_t hissFilterShift = 2;
-constexpr int16_t baseGain = 32;
+constexpr int16_t baseGain = 48;
 constexpr uint8_t filteredNoiseDivisor = 2;
 constexpr uint8_t deepNoiseDivisor = 2;
 constexpr uint8_t rawNoiseDivisor = 16;
@@ -61,8 +61,7 @@ constexpr uint8_t airMovementDivisor = 4;
 constexpr uint8_t hissDivisor = 8;
 constexpr uint8_t fastGustDepthShift = 1;
 constexpr uint8_t slowGustDepthShift = 2;
-constexpr uint8_t windNoiseInputDivisor = 3;
-constexpr uint16_t mixDivisor = 128;
+constexpr uint8_t gustMixShift = 7;
 }
 
 namespace Ghost {
