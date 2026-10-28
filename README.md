@@ -15,6 +15,9 @@ six times. Those software divisions alone can exceed the approximately 725
 cycles available per sample at 11.025 kHz, so raising the rate requires
 optimizing the sound paths and rechecking the ISR budget.
 
+Noise combines an independent xorshift32 generator and a 16-bit Galois LFSR to
+produce a less repetitive noise sequence.
+
 Edit `include/config.h` to change the sensor/PWM pins, sample timing, sound
 durations, and per-sound tuning parameters. PlatformIO build and upload options
 remain in `platformio.ini`.
