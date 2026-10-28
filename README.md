@@ -9,6 +9,12 @@ transitions during playback are ignored; another sequence can start only after
 completion and a new low-to-high transition. Audio is output as 31.25 kHz PWM
 on PD6/OC0A, updated at 8 kHz.
 
+The oscillator uses a 64-entry quarter-wave sine table in flash. The sample
+rate remains 8 kHz: the compiled bell path calls the AVR 16-bit division helper
+six times. Those software divisions alone can exceed the approximately 725
+cycles available per sample at 11.025 kHz, so raising the rate requires
+optimizing the sound paths and rechecking the ISR budget.
+
 Edit `include/config.h` to change the sensor/PWM pins, sample timing, sound
 durations, and per-sound tuning parameters. PlatformIO build and upload options
 remain in `platformio.ini`.

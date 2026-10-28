@@ -1,8 +1,17 @@
+#include <avr/pgmspace.h>
 #include "audio_engine.h"
 #include "config.h"
 #include "noise.h"
 
 namespace {
+// A 64-entry quarter wave reconstructs a smooth, signed cycle by symmetry.
+const uint8_t sineQuarterWave[64] PROGMEM = {
+    0, 3, 6, 9, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40, 43, 46,
+    49, 52, 55, 58, 61, 64, 66, 69, 72, 74, 77, 79, 82, 84, 86, 89,
+    91, 93, 95, 97, 99, 101, 103, 105, 107, 108, 110, 112, 113, 114, 116, 117,
+    118, 119, 120, 121, 122, 123, 124, 124, 125, 126, 126, 126, 127, 127, 127, 127
+};
+
 int16_t filteredNoise = 0;
 int16_t deepNoise = 0;
 uint16_t soundSample = 0;
@@ -29,9 +38,14 @@ int16_t triangleSignal(uint16_t phase) {
 }
 
 int16_t sineSignal(uint16_t phase) {
-    int16_t value = triangleSignal(phase);
-    int16_t magnitude = value < 0 ? -value : value;
-    return (value * (256 - magnitude)) >> 7;
+    uint8_t quadrant = phase >> 14;
+    uint8_t index = (phase >> 8) & 0x3F;
+    if (quadrant & 1) {
+        index = 63 - index;
+    }
+
+    int16_t value = pgm_read_byte(&sineQuarterWave[index]);
+    return (quadrant & 2) ? -value : value;
 }
 
 void resetSequence() {
@@ -103,7 +117,7 @@ uint8_t AudioEngine::nextSample() {
         uint8_t wobble = triangleWave(modulationPhase);
         uint16_t frequency = Config::Ghost::baseFrequency
             + (wobble >> Config::Ghost::wobbleShift);
-        ghostPhase += frequency << Config::phaseIncrementShift;
+        ghostPhase += frequency * Config::phaseIncrementScale;
         sample = sineSignal(ghostPhase) * Config::Ghost::toneNumerator
                 / Config::Ghost::toneDivisor
             + noise / Config::Ghost::noiseScale;
@@ -150,7 +164,7 @@ uint8_t AudioEngine::nextSample() {
             uint16_t frequency = Config::Door::baseFrequency
                 + (squeakPosition >> Config::Door::pitchStepShift)
                 + pitchJitter;
-            squeakPhase += frequency << Config::phaseIncrementShift;
+            squeakPhase += frequency * Config::phaseIncrementScale;
             int16_t friction = filteredNoise - deepNoise;
             sample = triangleSignal(squeakPhase) * envelope / Config::Door::waveformScale
                 + friction * envelope / Config::Door::waveformScale;
@@ -161,11 +175,11 @@ uint8_t AudioEngine::nextSample() {
     }
     case Config::bellSound: { // Inharmonic partials ring down at different rates after a noisy strike.
         bellFundamentalPhase += Config::Bell::fundamentalFrequency
-            << Config::phaseIncrementShift;
+            * Config::phaseIncrementScale;
         bellPartialPhase += Config::Bell::partialFrequency
-            << Config::phaseIncrementShift;
+            * Config::phaseIncrementScale;
         bellHighPartialPhase += Config::Bell::highPartialFrequency
-            << Config::phaseIncrementShift;
+            * Config::phaseIncrementScale;
         uint8_t fundamentalDecay = position < Config::Bell::fundamentalDecaySamples
             ? 255 - position / Config::Bell::fundamentalDecayDivisor
             : 0;
@@ -205,7 +219,7 @@ uint8_t AudioEngine::nextSample() {
                 : (Config::Owl::firstHootEnd - Config::Owl::firstHootStart) - hootPosition;
             uint16_t frequency = Config::Owl::baseFrequency
                 + (contour >> Config::Owl::pitchStepShift);
-            owlPhase += frequency << Config::phaseIncrementShift;
+            owlPhase += frequency * Config::phaseIncrementScale;
             uint16_t hootLength = Config::Owl::firstHootEnd - Config::Owl::firstHootStart;
             uint16_t edge = hootPosition < Config::Owl::attackSamples
                 ? hootPosition
