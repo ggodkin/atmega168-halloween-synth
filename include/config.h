@@ -152,7 +152,7 @@ constexpr uint8_t fourthPartialMixShift = 10;
 }
 
 namespace Owl {
-constexpr uint16_t cycleSamples = samplesFromReferenceRate(9000);
+constexpr uint16_t cycleSamples = samplesFromReferenceRate(7000);
 constexpr uint16_t firstHootStart = samplesFromReferenceRate(300);
 constexpr uint16_t firstHootEnd = samplesFromReferenceRate(2900);
 constexpr uint16_t secondHootStart = samplesFromReferenceRate(3400);
@@ -160,8 +160,14 @@ constexpr uint16_t secondHootEnd = samplesFromReferenceRate(6000);
 constexpr uint16_t pitchPeakSample = samplesFromReferenceRate(1300);
 constexpr uint16_t baseFrequency = 360;
 constexpr uint8_t pitchStepShift = 3;
+constexpr uint8_t secondGlideShift = 6;
+constexpr uint16_t vibratoPhaseStep =
+    samplesFromReferenceRate(6) * phaseIncrementScale;
+constexpr uint8_t vibratoDivisor = 24;
 constexpr uint16_t attackSamples = samplesFromReferenceRate(500);
 constexpr uint16_t envelopeRampSamples = samplesFromReferenceRate(800);
+constexpr uint8_t breathNoiseTimeShift = 3;
+constexpr uint8_t breathNoiseMixShift = 9;
 constexpr uint8_t noiseScale = 18;
 constexpr uint8_t envelopeShift = 2;
 constexpr uint8_t envelopeLevel = 200;

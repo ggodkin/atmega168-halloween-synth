@@ -43,6 +43,7 @@ int8_t bellPartialDetune = 0;
 int8_t bellHighPartialDetune = 0;
 int8_t bellFourthPartialDetune = 0;
 uint16_t owlPhase = 0;
+uint16_t owlVibratoPhase = 0;
 // An 8-bit event request is atomic to consume from the audio ISR.
 volatile uint8_t triggerRequested = 0;
 uint8_t sequencePlaying = 0;
@@ -166,6 +167,7 @@ void resetSequence() {
     bellHighPartialDetune = 0;
     bellFourthPartialDetune = 0;
     owlPhase = 0;
+    owlVibratoPhase = 0;
     outputGain = 0;
 }
 }
@@ -352,6 +354,7 @@ uint8_t AudioEngine::nextSample() {
         uint16_t cycle = position % Config::Owl::cycleSamples;
         uint16_t hootPosition = 0;
         bool hooting = false;
+        bool secondHoot = false;
         if (cycle >= Config::Owl::firstHootStart && cycle < Config::Owl::firstHootEnd) {
             hootPosition = cycle - Config::Owl::firstHootStart;
             hooting = true;
@@ -359,14 +362,21 @@ uint8_t AudioEngine::nextSample() {
             && cycle < Config::Owl::secondHootEnd) {
             hootPosition = cycle - Config::Owl::secondHootStart;
             hooting = true;
+            secondHoot = true;
         }
 
         if (hooting) {
             uint16_t contour = hootPosition < Config::Owl::pitchPeakSample
                 ? hootPosition
                 : (Config::Owl::firstHootEnd - Config::Owl::firstHootStart) - hootPosition;
-            uint16_t frequency = Config::Owl::baseFrequency
+            int16_t frequency = Config::Owl::baseFrequency
                 + (contour >> Config::Owl::pitchStepShift);
+            if (secondHoot) {
+                frequency -= hootPosition >> Config::Owl::secondGlideShift;
+                owlVibratoPhase += Config::Owl::vibratoPhaseStep;
+                frequency += sineSignal(owlVibratoPhase) / Config::Owl::vibratoDivisor;
+            }
+            if (frequency < 100) frequency = 100;
             owlPhase += frequency * Config::phaseIncrementScale;
             uint16_t hootLength = Config::Owl::firstHootEnd - Config::Owl::firstHootStart;
             uint16_t edge = hootPosition < Config::Owl::attackSamples
@@ -375,8 +385,15 @@ uint8_t AudioEngine::nextSample() {
             uint8_t envelope = edge < Config::Owl::envelopeRampSamples
                 ? edge >> Config::Owl::envelopeShift
                 : Config::Owl::envelopeLevel;
+            int16_t breathNoise = 0;
+            if (hootPosition < Config::Owl::attackSamples) {
+                breathNoise = filteredNoise
+                    * ((Config::Owl::attackSamples - hootPosition)
+                        >> Config::Owl::breathNoiseTimeShift)
+                    >> Config::Owl::breathNoiseMixShift;
+            }
             sample = sineSignal(owlPhase) * envelope / Config::Owl::toneMixDivisor
-                + noise / Config::Owl::noiseScale;
+                + breathNoise + noise / Config::Owl::noiseScale;
         }
         break;
     }
@@ -418,6 +435,7 @@ uint8_t AudioEngine::nextSample() {
             bellHighPartialDetune = 0;
             bellFourthPartialDetune = 0;
             owlPhase = 0;
+            owlVibratoPhase = 0;
         }
     }
 
