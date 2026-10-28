@@ -77,7 +77,7 @@ constexpr uint8_t tremoloDepthShift = 2;
 constexpr uint8_t decayShift = 7;
 constexpr uint8_t toneNumerator = 3;
 constexpr uint8_t toneDivisor = 4;
-constexpr uint8_t levelPercent = 150;
+constexpr uint16_t levelPercent = 300;
 }
 
 namespace Thunder {

@@ -321,8 +321,9 @@ uint8_t AudioEngine::nextSample() {
         ghostTone = ghostTone * Config::Ghost::toneNumerator
             / Config::Ghost::toneDivisor;
         uint8_t decay = 255 - (position >> Config::Ghost::decayShift);
-        sample = ((ghostTone + noise / Config::Ghost::noiseScale) * decay
-            >> 8) * Config::Ghost::levelPercent / 100;
+        int16_t ghostSample = (ghostTone + noise / Config::Ghost::noiseScale)
+            * decay >> 8;
+        sample = (int32_t)ghostSample * Config::Ghost::levelPercent / 100;
         break;
     }
     case Config::thunderSound: { // A sharp crack gives way to loud, enveloped low-frequency rumble.
