@@ -387,9 +387,11 @@ uint8_t AudioEngine::nextSample() {
                 : Config::Owl::envelopeLevel;
             int16_t breathNoise = 0;
             if (hootPosition < Config::Owl::attackSamples) {
+                uint16_t breathEdge = hootPosition;
+                uint16_t breathRelease = Config::Owl::attackSamples - hootPosition;
+                if (breathRelease < breathEdge) breathEdge = breathRelease;
                 breathNoise = filteredNoise
-                    * ((Config::Owl::attackSamples - hootPosition)
-                        >> Config::Owl::breathNoiseTimeShift)
+                    * (breathEdge >> Config::Owl::breathNoiseTimeShift)
                     >> Config::Owl::breathNoiseMixShift;
             }
             sample = sineSignal(owlPhase) * envelope / Config::Owl::toneMixDivisor
