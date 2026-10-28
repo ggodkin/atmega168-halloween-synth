@@ -64,8 +64,13 @@ constexpr uint16_t mixDivisor = 128;
 namespace Ghost {
 constexpr uint16_t vibratoPhaseStep = samplesFromReferenceRate(14);
 constexpr uint16_t baseFrequency = 145;
+constexpr uint8_t chorusDetuneHz = 2;
 constexpr uint8_t noiseScale = 12;
 constexpr uint8_t wobbleShift = 1;
+constexpr uint8_t chorusMainWeight = 3;
+constexpr uint8_t tremoloBase = 192;
+constexpr uint8_t tremoloDepthShift = 2;
+constexpr uint8_t decayShift = 7;
 constexpr uint8_t toneNumerator = 3;
 constexpr uint8_t toneDivisor = 4;
 }

@@ -27,6 +27,9 @@ Wind uses two overlapping gust rates and separate low-pass noise bands for
 slow air movement and higher-frequency hiss. Their rates and mix levels are
 configurable in `include/config.h`.
 
+The ghost combines two slightly detuned voices, vibrato-locked tremolo, and a
+gradual amplitude decay across its sound slot.
+
 Edit `include/config.h` to change the sensor/PWM pins, sample timing, sound
 durations, and per-sound tuning parameters. PlatformIO build and upload options
 remain in `platformio.ini`.

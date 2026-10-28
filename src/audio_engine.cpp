@@ -24,6 +24,7 @@ uint8_t sound = Config::windSound;
 uint16_t modulationPhase = 0;
 uint16_t slowGustPhase = 0;
 uint16_t ghostPhase = 0;
+uint16_t ghostChorusPhase = 0;
 uint16_t squeakPhase = 0;
 uint16_t bellFundamentalPhase = 0;
 uint16_t bellPartialPhase = 0;
@@ -81,6 +82,7 @@ void resetSequence() {
     modulationPhase = 0;
     slowGustPhase = 0;
     ghostPhase = 0;
+    ghostChorusPhase = 0;
     squeakPhase = 0;
     bellFundamentalPhase = 0;
     bellPartialPhase = 0;
@@ -153,15 +155,23 @@ uint8_t AudioEngine::nextSample() {
             / Config::Wind::mixDivisor;
         break;
     }
-    case Config::ghostSound: { // Pitch-vibrato on a strong near-sine tone gives the ghost a clear howl.
+    case Config::ghostSound: { // Slightly detuned, tremolo-modulated voices fade through the sound slot.
         modulationPhase += Config::Ghost::vibratoPhaseStep;
         uint8_t wobble = triangleWave(modulationPhase);
         uint16_t frequency = Config::Ghost::baseFrequency
             + (wobble >> Config::Ghost::wobbleShift);
         ghostPhase += frequency * Config::phaseIncrementScale;
-        sample = sineSignal(ghostPhase) * Config::Ghost::toneNumerator
-                / Config::Ghost::toneDivisor
-            + noise / Config::Ghost::noiseScale;
+        ghostChorusPhase += (frequency + Config::Ghost::chorusDetuneHz)
+            * Config::phaseIncrementScale;
+        int16_t chorusTone = (sineSignal(ghostPhase) * Config::Ghost::chorusMainWeight
+            + sineSignal(ghostChorusPhase)) / (Config::Ghost::chorusMainWeight + 1);
+        uint8_t tremolo = Config::Ghost::tremoloBase
+            + (wobble >> Config::Ghost::tremoloDepthShift);
+        int16_t ghostTone = chorusTone * tremolo >> 8;
+        ghostTone = ghostTone * Config::Ghost::toneNumerator
+            / Config::Ghost::toneDivisor;
+        uint8_t decay = 255 - (position >> Config::Ghost::decayShift);
+        sample = (ghostTone + noise / Config::Ghost::noiseScale) * decay >> 8;
         break;
     }
     case Config::thunderSound: { // A filtered crack gives way to slow, pulsing low-frequency rumble.
@@ -304,6 +314,7 @@ uint8_t AudioEngine::nextSample() {
             modulationPhase = 0;
             slowGustPhase = 0;
             ghostPhase = 0;
+            ghostChorusPhase = 0;
             squeakPhase = 0;
             bellFundamentalPhase = 0;
             bellPartialPhase = 0;
