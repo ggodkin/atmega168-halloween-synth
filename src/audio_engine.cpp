@@ -51,6 +51,8 @@ int16_t deepNoise = 0;
 int16_t pinkFast = 0;
 int16_t pinkMid = 0;
 int16_t pinkSlow = 0;
+int16_t thunderNoiseFast = 0;
+int16_t thunderNoiseSlow = 0;
 int16_t windAirNoise = 0;
 int16_t windHissNoise = 0;
 uint16_t soundSample = 0;
@@ -205,6 +207,8 @@ void resetSequence() {
     pinkFast = 0;
     pinkMid = 0;
     pinkSlow = 0;
+    thunderNoiseFast = 0;
+    thunderNoiseSlow = 0;
     windAirNoise = 0;
     windHissNoise = 0;
     soundSample = 0;
@@ -344,6 +348,14 @@ uint8_t AudioEngine::nextSample() {
         lowRumbleTone = lowRumbleTone * rumbleDecay >> 8;
         int16_t deepRumble = (deepNoise / 2) * rumbleGain >> 8;
         deepRumble = deepRumble * rumbleDecay >> 8;
+        thunderNoiseFast += (noise - thunderNoiseFast)
+            >> Config::Thunder::rumbleNoiseFastFilterShift;
+        thunderNoiseSlow += (noise - thunderNoiseSlow)
+            >> Config::Thunder::rumbleNoiseSlowFilterShift;
+        int16_t bandNoise = (thunderNoiseFast - thunderNoiseSlow) >> 1;
+        int16_t rollingNoise = bandNoise * rumbleGain
+            >> Config::Thunder::rumbleNoiseGainShift;
+        rollingNoise = rollingNoise * rumbleDecay >> 8;
         int16_t highPassedNoise = noise - pinkFast;
         int16_t crack = 0;
         if (position < Config::Thunder::crackSamples) {
@@ -356,7 +368,8 @@ uint8_t AudioEngine::nextSample() {
             crack = (int16_t)crackValue;
         }
         int16_t click = position == 0 ? Config::Thunder::crackClickLevel : 0;
-        sample = position == 0 ? click : crack + deepRumble + lowRumbleTone;
+        sample = position == 0 ? click
+            : crack + deepRumble + lowRumbleTone + rollingNoise;
         break;
     }
     case Config::doorSound: { // Overlapping jittered creaks have brief catches and metallic ring.

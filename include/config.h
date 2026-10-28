@@ -81,10 +81,13 @@ constexpr uint8_t toneDivisor = 4;
 
 namespace Thunder {
 constexpr uint16_t rumblePhaseStep = samplesFromReferenceRate(3);
-constexpr uint16_t rumbleToneFrequency = 46;
-constexpr uint16_t secondaryRumbleFrequency = 63;
+constexpr uint16_t rumbleToneFrequency = 92;
+constexpr uint16_t secondaryRumbleFrequency = 137;
 constexpr uint8_t rumbleEnvelopeStepShift = 10;
 constexpr uint16_t fadeSamples = samplesFromReferenceRate(16);
+constexpr uint8_t rumbleNoiseFastFilterShift = 2;
+constexpr uint8_t rumbleNoiseSlowFilterShift = 5;
+constexpr uint8_t rumbleNoiseGainShift = 7;
 constexpr uint16_t crackSamples = samplesFromReferenceRate(300);
 constexpr uint16_t crackScale = 36;
 constexpr uint8_t crackLevelShift = 1;
