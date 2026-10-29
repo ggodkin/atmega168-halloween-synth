@@ -29,8 +29,8 @@ slow air movement and higher-frequency hiss. Its corrected mix scaling makes
 the gust-shaped airflow clearly audible instead of leaving it as faint hiss.
 Gust rates and mix levels are configurable in `include/config.h`.
 
-The ghost combines two slightly detuned voices, vibrato-locked tremolo, and a
-gradual amplitude decay across its sound slot.
+The ghost uses the owl's wavetable voice and shaped pitch contour, with a
+lower-then-higher paired call, vibrato, and a gradual amplitude envelope.
 
 The door effect plays a two-second recorded squeak from a flash-resident,
 low-pass-resampled sample table. It plays once at the beginning of the
@@ -41,9 +41,9 @@ each strike and exponential ring-down. Its partials now fade in over a smooth
 128 ms curve, with only a quiet filtered-noise strike transient.
 
 The owl uses a flash-resident harmonic wavetable and interpolated pitch and
-amplitude contours for longer, approximately 1.25-second calls, producing
-fewer hoots in the same sequence. A very soft filtered-noise breath fades in
-and out at each call's onset, while the tone follows a gradual, extended decay.
+amplitude contours for shorter, approximately 0.625-second calls. The second
+note is higher and stronger to create a clear "hoo-HOO" phrase. A very soft
+filtered-noise breath fades in and out at each call's onset.
 
 Edit `include/config.h` to change the sensor/PWM pins, sample timing, sound
 durations, and per-sound tuning parameters. PlatformIO build and upload options

@@ -64,21 +64,6 @@ constexpr uint8_t slowGustDepthShift = 2;
 constexpr uint8_t gustMixShift = 7;
 }
 
-namespace Ghost {
-constexpr uint16_t vibratoPhaseStep = samplesFromReferenceRate(14);
-constexpr uint16_t baseFrequency = 145;
-constexpr uint8_t chorusDetuneHz = 2;
-constexpr uint8_t noiseScale = 12;
-constexpr uint8_t wobbleShift = 1;
-constexpr uint8_t chorusMainWeight = 3;
-constexpr uint8_t tremoloBase = 192;
-constexpr uint8_t tremoloDepthShift = 2;
-constexpr uint8_t decayShift = 7;
-constexpr uint8_t toneNumerator = 3;
-constexpr uint8_t toneDivisor = 4;
-constexpr uint16_t levelPercent = 300;
-}
-
 namespace Thunder {
 constexpr uint16_t rumblePhaseStep = samplesFromReferenceRate(3);
 constexpr uint16_t rumbleToneFrequency = 92;
@@ -134,13 +119,13 @@ constexpr uint8_t fourthPartialMixShift = 10;
 namespace Owl {
 constexpr uint16_t cycleSamples = samplesFromReferenceRate(24000);
 constexpr uint16_t firstHootStart = samplesFromReferenceRate(250);
-constexpr uint16_t firstHootEnd = samplesFromReferenceRate(10250);
+constexpr uint16_t firstHootEnd = samplesFromReferenceRate(5250);
 constexpr uint16_t secondHootStart = samplesFromReferenceRate(11250);
-constexpr uint16_t secondHootEnd = samplesFromReferenceRate(21250);
+constexpr uint16_t secondHootEnd = samplesFromReferenceRate(16250);
 constexpr uint8_t contourEntryCount = 40;
-constexpr uint8_t contourStepShift = 8;
+constexpr uint8_t contourStepShift = 7;
 constexpr uint16_t baseFrequency = 520;
-constexpr uint8_t secondHootOffset = 35;
+constexpr uint8_t secondHootOffset = 100;
 constexpr uint8_t chorusDetuneHz = 3;
 constexpr uint8_t chorusMainWeight = 3;
 constexpr uint16_t vibratoPhaseStep =

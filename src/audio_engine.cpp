@@ -56,8 +56,6 @@ uint16_t modulationPhase = 0;
 uint16_t slowGustPhase = 0;
 uint16_t thunderRumblePhase = 0;
 uint16_t thunderSecondaryPhase = 0;
-uint16_t ghostPhase = 0;
-uint16_t ghostChorusPhase = 0;
 uint32_t doorSamplePhase = 0;
 uint16_t bellFundamentalPhase = 0;
 uint16_t bellPartialPhase = 0;
@@ -138,6 +136,52 @@ uint8_t thunderBoomGain(uint16_t position, uint16_t start) {
             >> Config::Thunder::boomDecayShift);
 }
 
+int16_t renderOwlCall(uint16_t position) {
+    uint16_t cycle = position % Config::Owl::cycleSamples;
+    uint16_t hootPosition = 0;
+    bool hooting = false;
+    bool secondHoot = false;
+    if (cycle >= Config::Owl::firstHootStart && cycle < Config::Owl::firstHootEnd) {
+        hootPosition = cycle - Config::Owl::firstHootStart;
+        hooting = true;
+    } else if (cycle >= Config::Owl::secondHootStart
+        && cycle < Config::Owl::secondHootEnd) {
+        hootPosition = cycle - Config::Owl::secondHootStart;
+        hooting = true;
+        secondHoot = true;
+    }
+
+    if (!hooting) return 0;
+
+    int16_t frequency = Config::Owl::baseFrequency
+        + interpolateOwlContour(owlPitchContour, hootPosition);
+    if (secondHoot) frequency += Config::Owl::secondHootOffset;
+    owlVibratoPhase += Config::Owl::vibratoPhaseStep;
+    frequency += sineSignal(owlVibratoPhase) / Config::Owl::vibratoDivisor;
+    if (frequency < 200) frequency = 200;
+    owlPhase += frequency * Config::phaseIncrementScale;
+    owlChorusPhase += (frequency + Config::Owl::chorusDetuneHz)
+        * Config::phaseIncrementScale;
+    int16_t envelope = interpolateOwlContour(owlLevelContour, hootPosition);
+    if (secondHoot) envelope = envelope * 5 / 4;
+    int16_t waveform = (int8_t)pgm_read_byte(&owlWaveTable[owlPhase >> 10]);
+    int16_t tone = (waveform * Config::Owl::chorusMainWeight
+        + sineSignal(owlChorusPhase))
+        / (Config::Owl::chorusMainWeight + 1);
+    uint8_t tremolo = 224 + sineSignal(owlVibratoPhase)
+        / Config::Owl::tremoloDepthDivisor;
+    int16_t sample = (tone * tremolo >> 8) * envelope
+        >> Config::Owl::levelScaleShift;
+    if (hootPosition < Config::Owl::breathSamples) {
+        uint16_t remainingBreath = Config::Owl::breathSamples - hootPosition;
+        int16_t breathEnvelope = envelope * remainingBreath
+            >> Config::Owl::breathEnvelopeShift;
+        sample += (filteredNoise * breathEnvelope)
+            >> Config::Owl::breathMixShift;
+    }
+    return sample;
+}
+
 int16_t renderDoorSqueak() {
     uint16_t index = doorSamplePhase >> 16;
     if (index >= DOOR_SQUEAK_SAMPLE_COUNT) {
@@ -171,8 +215,6 @@ void resetSequence() {
     slowGustPhase = 0;
     thunderRumblePhase = 0;
     thunderSecondaryPhase = 0;
-    ghostPhase = 0;
-    ghostChorusPhase = 0;
     doorSamplePhase = 0;
     bellFundamentalPhase = 0;
     bellPartialPhase = 0;
@@ -252,25 +294,8 @@ uint8_t AudioEngine::nextSample() {
         sample = (int32_t)windNoise * gustGain >> Config::Wind::gustMixShift;
         break;
     }
-    case Config::ghostSound: { // Slightly detuned, tremolo-modulated voices fade through the sound slot.
-        modulationPhase += Config::Ghost::vibratoPhaseStep;
-        uint8_t wobble = triangleWave(modulationPhase);
-        uint16_t frequency = Config::Ghost::baseFrequency
-            + (wobble >> Config::Ghost::wobbleShift);
-        ghostPhase += frequency * Config::phaseIncrementScale;
-        ghostChorusPhase += (frequency + Config::Ghost::chorusDetuneHz)
-            * Config::phaseIncrementScale;
-        int16_t chorusTone = (sineSignal(ghostPhase) * Config::Ghost::chorusMainWeight
-            + sineSignal(ghostChorusPhase)) / (Config::Ghost::chorusMainWeight + 1);
-        uint8_t tremolo = Config::Ghost::tremoloBase
-            + (wobble >> Config::Ghost::tremoloDepthShift);
-        int16_t ghostTone = chorusTone * tremolo >> 8;
-        ghostTone = ghostTone * Config::Ghost::toneNumerator
-            / Config::Ghost::toneDivisor;
-        uint8_t decay = 255 - (position >> Config::Ghost::decayShift);
-        int16_t ghostSample = (ghostTone + noise / Config::Ghost::noiseScale)
-            * decay >> 8;
-        sample = (int32_t)ghostSample * Config::Ghost::levelPercent / 100;
+    case Config::ghostSound: { // Owl-style pitched calls give the ghost its wavering voice.
+        sample = renderOwlCall(position);
         break;
     }
     case Config::thunderSound: { // A sharp crack gives way to loud, enveloped low-frequency rumble.
@@ -367,48 +392,8 @@ uint8_t AudioEngine::nextSample() {
         }
         break;
     }
-    case Config::owlSound: { // Flash wavetable and interpolated contours shape soft, paired owl calls.
-        uint16_t cycle = position % Config::Owl::cycleSamples;
-        uint16_t hootPosition = 0;
-        bool hooting = false;
-        bool secondHoot = false;
-        if (cycle >= Config::Owl::firstHootStart && cycle < Config::Owl::firstHootEnd) {
-            hootPosition = cycle - Config::Owl::firstHootStart;
-            hooting = true;
-        } else if (cycle >= Config::Owl::secondHootStart
-            && cycle < Config::Owl::secondHootEnd) {
-            hootPosition = cycle - Config::Owl::secondHootStart;
-            hooting = true;
-            secondHoot = true;
-        }
-
-        if (hooting) {
-            int16_t frequency = Config::Owl::baseFrequency
-                + interpolateOwlContour(owlPitchContour, hootPosition);
-            if (secondHoot) frequency -= Config::Owl::secondHootOffset;
-            owlVibratoPhase += Config::Owl::vibratoPhaseStep;
-            frequency += sineSignal(owlVibratoPhase) / Config::Owl::vibratoDivisor;
-            if (frequency < 200) frequency = 200;
-            owlPhase += frequency * Config::phaseIncrementScale;
-            owlChorusPhase += (frequency + Config::Owl::chorusDetuneHz)
-                * Config::phaseIncrementScale;
-            int16_t envelope = interpolateOwlContour(owlLevelContour, hootPosition);
-            int16_t waveform = (int8_t)pgm_read_byte(&owlWaveTable[owlPhase >> 10]);
-            int16_t tone = (waveform * Config::Owl::chorusMainWeight
-                + sineSignal(owlChorusPhase))
-                / (Config::Owl::chorusMainWeight + 1);
-            uint8_t tremolo = 224 + sineSignal(owlVibratoPhase)
-                / Config::Owl::tremoloDepthDivisor;
-            sample = (tone * tremolo >> 8) * envelope
-                >> Config::Owl::levelScaleShift;
-            if (hootPosition < Config::Owl::breathSamples) {
-                uint16_t remainingBreath = Config::Owl::breathSamples - hootPosition;
-                int16_t breathEnvelope = envelope * remainingBreath
-                    >> Config::Owl::breathEnvelopeShift;
-                sample += (filteredNoise * breathEnvelope)
-                    >> Config::Owl::breathMixShift;
-            }
-        }
+    case Config::owlSound: { // Flash wavetable and contours shape shorter paired owl calls.
+        sample = renderOwlCall(position);
         break;
     }
     }
@@ -437,8 +422,6 @@ uint8_t AudioEngine::nextSample() {
             slowGustPhase = 0;
             thunderRumblePhase = 0;
             thunderSecondaryPhase = 0;
-            ghostPhase = 0;
-            ghostChorusPhase = 0;
             doorSamplePhase = 0;
             bellFundamentalPhase = 0;
             bellPartialPhase = 0;
