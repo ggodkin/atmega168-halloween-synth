@@ -84,6 +84,17 @@ int16_t sineSignal(uint16_t phase) {
     return (quadrant & 2) ? -value : value;
 }
 
+uint8_t ledFadeCurve(uint8_t progress) {
+    if (progress < 128) {
+        uint16_t value = progress;
+        return (value * value * 2 + 127) / 255;
+    }
+
+    uint16_t remaining = 255 - progress;
+    uint16_t fade = (remaining * remaining * 2 + 254) / 255;
+    return 255 - fade;
+}
+
 int16_t interpolateOwlContour(const int8_t *table, uint16_t position) {
     uint8_t index = position >> Config::Owl::contourStepShift;
     if (index >= Config::Owl::contourEntryCount - 1) {
@@ -279,17 +290,18 @@ uint8_t AudioEngine::nextSample() {
 
     uint16_t position = soundSample;
     uint16_t activeSoundSamples = Config::samplesPerSound;
-    uint16_t ledBrightness = 0;
+    uint16_t fadePosition;
     if (ledFadePhase < Config::ledFadeInSamples) {
-        ledBrightness = (uint32_t)ledFadePhase * 255
-            / (Config::ledFadeInSamples - 1);
+        fadePosition = ledFadePhase;
     } else if (ledFadePhase
             < Config::ledFadeInSamples + Config::ledFadeOutSamples) {
-        uint16_t remaining = Config::ledFadeInSamples
-            + Config::ledFadeOutSamples - ledFadePhase;
-        ledBrightness = (uint32_t)(remaining - 1) * 255
-            / (Config::ledFadeOutSamples - 1);
+        fadePosition = Config::ledFadeOutSamples - 1
+            - (ledFadePhase - Config::ledFadeInSamples);
+    } else {
+        fadePosition = 0;
     }
+    uint8_t fadeProgress = fadePosition / 125;
+    uint8_t ledBrightness = ledFadeCurve(fadeProgress);
     OCR0B = 255 - ledBrightness;
     if (++ledFadePhase >= Config::ledFadeCycleSamples) {
         ledFadePhase = 0;
