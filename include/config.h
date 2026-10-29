@@ -6,6 +6,7 @@
 namespace Config {
 constexpr uint8_t motionSensorBit = PD2;
 constexpr uint8_t pwmOutputBit = PD6;
+constexpr uint8_t ledOutputBit = PD5;
 constexpr uint8_t pwmCenter = 128;
 constexpr uint16_t audioSampleRate = 8000;
 // Timer1 runs without a prescaler, so this produces one interrupt per audio sample.
@@ -19,6 +20,11 @@ constexpr uint16_t samplesFromReferenceRate(uint16_t samples) {
         / referenceSampleRate;
 }
 constexpr uint16_t soundFadeSamples = samplesFromReferenceRate(160);
+constexpr uint16_t ledFadeInSamples = samplesFromReferenceRate(2000);
+constexpr uint16_t ledFadeOutSamples = samplesFromReferenceRate(2000);
+constexpr uint16_t ledFadeHoldSamples = samplesFromReferenceRate(0);
+constexpr uint16_t ledFadeCycleSamples = ledFadeInSamples
+    + ledFadeOutSamples + ledFadeHoldSamples;
 constexpr uint8_t outputGainStep = 4;
 // Eight phase units per hertz approximates 65536 / the 8 kHz sample rate.
 constexpr uint8_t phaseIncrementScale = 8;

@@ -46,6 +46,7 @@ int16_t pinkSlow = 0;
 int16_t windAirNoise = 0;
 int16_t windHissNoise = 0;
 uint16_t soundSample = 0;
+uint16_t ledFadePhase = 0;
 uint8_t sound = Config::windSound;
 uint16_t modulationPhase = 0;
 uint16_t slowGustPhase = 0;
@@ -215,6 +216,7 @@ void resetSequence() {
     windAirNoise = 0;
     windHissNoise = 0;
     soundSample = 0;
+    ledFadePhase = 0;
     sound = Config::windSound;
     modulationPhase = 0;
     slowGustPhase = 0;
@@ -256,6 +258,7 @@ uint8_t AudioEngine::nextSample() {
     }
 
     if (!sequencePlaying) {
+        OCR0B = 255;
         return 128;
     }
     // Fade in at the start; the final sound's envelope fades the sequence out.
@@ -276,6 +279,21 @@ uint8_t AudioEngine::nextSample() {
 
     uint16_t position = soundSample;
     uint16_t activeSoundSamples = Config::samplesPerSound;
+    uint16_t ledBrightness = 0;
+    if (ledFadePhase < Config::ledFadeInSamples) {
+        ledBrightness = (uint32_t)ledFadePhase * 255
+            / (Config::ledFadeInSamples - 1);
+    } else if (ledFadePhase
+            < Config::ledFadeInSamples + Config::ledFadeOutSamples) {
+        uint16_t remaining = Config::ledFadeInSamples
+            + Config::ledFadeOutSamples - ledFadePhase;
+        ledBrightness = (uint32_t)(remaining - 1) * 255
+            / (Config::ledFadeOutSamples - 1);
+    }
+    OCR0B = 255 - ledBrightness;
+    if (++ledFadePhase >= Config::ledFadeCycleSamples) {
+        ledFadePhase = 0;
+    }
     int16_t sample = 0;
 
     switch (sound) {

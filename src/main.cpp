@@ -8,9 +8,10 @@ ISR(TIMER1_COMPA_vect) {
 }
 
 void setupPWM() {
-    DDRD |= _BV(Config::pwmOutputBit);
+    DDRD |= _BV(Config::pwmOutputBit) | _BV(Config::ledOutputBit);
     OCR0A = Config::pwmCenter;
-    TCCR0A = (1 << COM0A1) | (1 << WGM00) | (1 << WGM01);
+    OCR0B = 255;
+    TCCR0A = (1 << COM0A1) | (1 << COM0B1) | (1 << WGM00) | (1 << WGM01);
     TCCR0B = (1 << CS00);
 }
 
