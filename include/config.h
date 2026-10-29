@@ -87,11 +87,15 @@ constexpr uint8_t fourthPartialMixShift = 10;
 }
 
 namespace Owl {
+constexpr uint16_t sampleRate = 4000;
+constexpr uint8_t sampleUpsampleFactor = audioSampleRate / sampleRate;
+static_assert(sampleRate * sampleUpsampleFactor == audioSampleRate,
+    "owl sample rate must divide the audio sample rate");
 constexpr uint16_t cycleSamples = samplesFromReferenceRate(24000);
 constexpr uint16_t firstHootStart = samplesFromReferenceRate(250);
-constexpr uint16_t firstHootEnd = samplesFromReferenceRate(5250);
-constexpr uint16_t secondHootStart = samplesFromReferenceRate(11250);
-constexpr uint16_t secondHootEnd = samplesFromReferenceRate(16250);
+constexpr uint16_t firstHootEnd = samplesFromReferenceRate(2650);
+constexpr uint16_t secondHootStart = samplesFromReferenceRate(3450);
+constexpr uint16_t secondHootEnd = samplesFromReferenceRate(5850);
 constexpr uint8_t contourEntryCount = 40;
 constexpr uint8_t contourStepShift = 7;
 constexpr uint16_t baseFrequency = 520;
@@ -104,7 +108,7 @@ constexpr uint16_t vibratoPhaseStep =
     samplesFromReferenceRate(6) * phaseIncrementScale;
 constexpr uint8_t vibratoDivisor = 40;
 constexpr uint8_t tremoloDepthDivisor = 8;
-constexpr uint16_t breathSamples = samplesFromReferenceRate(512);
+constexpr uint16_t breathSamples = samplesFromReferenceRate(2400);
 constexpr uint8_t breathEnvelopeShift = 9;
 constexpr uint8_t levelScaleShift = 7;
 constexpr uint8_t breathMixShift = 12;

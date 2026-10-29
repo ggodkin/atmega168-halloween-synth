@@ -3,6 +3,7 @@
 #include "config.h"
 #include "door_squeak_samples.h"
 #include "noise.h"
+#include "owl_samples.h"
 
 namespace {
 // A 64-entry quarter wave reconstructs a smooth, signed cycle by symmetry.
@@ -57,6 +58,7 @@ int8_t bellFundamentalDetune = 0;
 int8_t bellPartialDetune = 0;
 int8_t bellHighPartialDetune = 0;
 int8_t bellFourthPartialDetune = 0;
+uint16_t owlRecordingPosition = 0;
 uint16_t owlPhase = 0;
 uint16_t owlChorusPhase = 0;
 uint16_t owlVibratoPhase = 0;
@@ -114,7 +116,7 @@ int8_t randomBellDetune() {
     return (int8_t)(noise8() >> 5) - Config::Bell::randomDetuneRange;
 }
 
-int16_t renderOwlCall(uint16_t position) {
+int16_t renderGhostCall(uint16_t position) {
     uint16_t cycle = position % Config::Owl::cycleSamples;
     uint16_t hootPosition = 0;
     bool hooting = false;
@@ -131,8 +133,9 @@ int16_t renderOwlCall(uint16_t position) {
 
     if (!hooting) return 0;
 
+    uint16_t contourPosition = (uint32_t)hootPosition * 21 / 10;
     int16_t frequency = Config::Owl::baseFrequency
-        + interpolateOwlContour(owlPitchContour, hootPosition);
+        + interpolateOwlContour(owlPitchContour, contourPosition);
     if (secondHoot) frequency += Config::Owl::secondHootOffset;
     owlVibratoPhase += Config::Owl::vibratoPhaseStep;
     frequency += sineSignal(owlVibratoPhase) / Config::Owl::vibratoDivisor;
@@ -140,7 +143,7 @@ int16_t renderOwlCall(uint16_t position) {
     owlPhase += frequency * Config::phaseIncrementScale;
     owlChorusPhase += (frequency + Config::Owl::chorusDetuneHz)
         * Config::phaseIncrementScale;
-    int16_t envelope = interpolateOwlContour(owlLevelContour, hootPosition);
+    int16_t envelope = interpolateOwlContour(owlLevelContour, contourPosition);
     envelope = envelope * (secondHoot
         ? Config::Owl::secondHootLevelPercent
         : Config::Owl::firstHootLevelPercent) / 100;
@@ -158,6 +161,30 @@ int16_t renderOwlCall(uint16_t position) {
             >> Config::Owl::breathEnvelopeShift;
         sample += (filteredNoise * breathEnvelope)
             >> Config::Owl::breathMixShift;
+    }
+    return sample;
+}
+
+int16_t renderOwlRecording() {
+    uint16_t sourceIndex = owlRecordingPosition
+        / Config::Owl::sampleUpsampleFactor;
+    uint16_t fraction = ((uint32_t)(owlRecordingPosition
+        % Config::Owl::sampleUpsampleFactor) << 16)
+        / Config::Owl::sampleUpsampleFactor;
+    int16_t sample = 0;
+    if (sourceIndex >= OWL_SAMPLE_START
+            && sourceIndex < OWL_SAMPLE_START + OWL_SAMPLE_COUNT) {
+        uint16_t index = sourceIndex - OWL_SAMPLE_START;
+        uint8_t first = pgm_read_byte(&owlSamples[index]);
+        uint8_t second = index + 1 < OWL_SAMPLE_COUNT
+            ? pgm_read_byte(&owlSamples[index + 1])
+            : 128;
+        sample = (int16_t)first - 128
+            + ((int32_t)((int16_t)second - first) * fraction >> 16);
+    }
+
+    if (++owlRecordingPosition == Config::audioSampleRate) {
+        owlRecordingPosition = 0;
     }
     return sample;
 }
@@ -200,6 +227,7 @@ void resetSequence() {
     bellPartialDetune = 0;
     bellHighPartialDetune = 0;
     bellFourthPartialDetune = 0;
+    owlRecordingPosition = 0;
     owlPhase = 0;
     owlChorusPhase = 0;
     owlVibratoPhase = 0;
@@ -271,7 +299,7 @@ uint8_t AudioEngine::nextSample() {
         break;
     }
     case Config::ghostSound: { // Owl-style pitched calls give the ghost its wavering voice.
-        sample = renderOwlCall(position);
+        sample = renderGhostCall(position);
         break;
     }
     case Config::doorSound: { // Play the recorded, flash-resident door squeak.
@@ -321,7 +349,7 @@ uint8_t AudioEngine::nextSample() {
         break;
     }
     case Config::owlSound: { // Flash wavetable and contours shape shorter paired owl calls.
-        sample = renderOwlCall(position);
+        sample = renderOwlRecording();
         break;
     }
     }
@@ -355,6 +383,7 @@ uint8_t AudioEngine::nextSample() {
             bellPartialDetune = 0;
             bellHighPartialDetune = 0;
             bellFourthPartialDetune = 0;
+            owlRecordingPosition = 0;
             owlPhase = 0;
             owlChorusPhase = 0;
             owlVibratoPhase = 0;
