@@ -9,10 +9,10 @@ transitions during playback are ignored; another sequence can start only after
 completion and a new low-to-high transition. Audio is output as 31.25 kHz PWM
 on PD6/OC0A, updated at 8 kHz.
 An LED connected from 5 V through a series resistor to PD5/OC0B follows a
-smooth parabolic fade: four seconds from off to full brightness, then four
-seconds back to off with no hold at full brightness. The cycle continues across
-sound-effect boundaries. This active-low connection keeps the LED off while
-idle.
+smooth parabolic fade across the full brightness range: two seconds from off to
+full brightness, then two seconds back to off with no hold at full brightness.
+The cycle continues across sound-effect boundaries. This active-low connection
+keeps the LED off while idle.
 
 The oscillator uses a 64-entry quarter-wave sine table in flash. The sample
 rate remains 8 kHz because some sound paths use AVR 16-bit division helpers.

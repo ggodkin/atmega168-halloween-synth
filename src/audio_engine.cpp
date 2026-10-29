@@ -290,17 +290,20 @@ uint8_t AudioEngine::nextSample() {
 
     uint16_t position = soundSample;
     uint16_t activeSoundSamples = Config::samplesPerSound;
-    uint16_t fadePosition;
+    uint16_t fadePosition = 0;
+    uint16_t fadeDuration = 0;
     if (ledFadePhase < Config::ledFadeInSamples) {
         fadePosition = ledFadePhase;
+        fadeDuration = Config::ledFadeInSamples;
     } else if (ledFadePhase
             < Config::ledFadeInSamples + Config::ledFadeOutSamples) {
         fadePosition = Config::ledFadeOutSamples - 1
             - (ledFadePhase - Config::ledFadeInSamples);
-    } else {
-        fadePosition = 0;
+        fadeDuration = Config::ledFadeOutSamples;
     }
-    uint8_t fadeProgress = fadePosition / 125;
+    uint8_t fadeProgress = fadeDuration > 1
+        ? (uint32_t)fadePosition * 255 / (fadeDuration - 1)
+        : 0;
     uint8_t ledBrightness = ledFadeCurve(fadeProgress);
     OCR0B = 255 - ledBrightness;
     if (++ledFadePhase >= Config::ledFadeCycleSamples) {
