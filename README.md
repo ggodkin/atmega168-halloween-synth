@@ -9,7 +9,7 @@ transitions during playback are ignored; another sequence can start only after
 completion and a new low-to-high transition. Audio is output as 31.25 kHz PWM
 on PD6/OC0A, updated at 8 kHz.
 An LED connected from 5 V through a series resistor to PD5/OC0B continuously
-fades from off to full brightness over two seconds and back to off over two
+fades from off to full brightness over four seconds and back to off over four
 seconds throughout the entire sound sequence, without restarting at effect
 boundaries. This active-low connection keeps the LED off while idle.
 

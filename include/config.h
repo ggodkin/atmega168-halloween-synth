@@ -20,8 +20,8 @@ constexpr uint16_t samplesFromReferenceRate(uint16_t samples) {
         / referenceSampleRate;
 }
 constexpr uint16_t soundFadeSamples = samplesFromReferenceRate(160);
-constexpr uint16_t ledFadeInSamples = samplesFromReferenceRate(2000);
-constexpr uint16_t ledFadeOutSamples = samplesFromReferenceRate(2000);
+constexpr uint16_t ledFadeInSamples = samplesFromReferenceRate(4000);
+constexpr uint16_t ledFadeOutSamples = samplesFromReferenceRate(4000);
 constexpr uint16_t ledFadeHoldSamples = samplesFromReferenceRate(0);
 constexpr uint16_t ledFadeCycleSamples = ledFadeInSamples
     + ledFadeOutSamples + ledFadeHoldSamples;
