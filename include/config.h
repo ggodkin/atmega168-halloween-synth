@@ -26,8 +26,14 @@ constexpr uint16_t ledFadeHoldSamples = samplesFromReferenceRate(0);
 constexpr uint16_t ledFadeCycleSamples = ledFadeInSamples
     + ledFadeOutSamples + ledFadeHoldSamples;
 constexpr uint8_t outputGainStep = 4;
-// Eight phase units per hertz approximates 65536 / the 8 kHz sample rate.
-constexpr uint8_t phaseIncrementScale = 8;
+// Q8 phase units per hertz, rounded from the configured sample rate.
+constexpr uint16_t phaseIncrementScaleQ8 =
+    ((uint32_t)65536 * 256 + audioSampleRate / 2) / audioSampleRate;
+constexpr uint16_t phaseIncrementForFrequency(uint16_t frequency) {
+    return frequency * (phaseIncrementScaleQ8 >> 8)
+        + (frequency >> 8) * (phaseIncrementScaleQ8 & 0xFF)
+        + (((frequency & 0xFF) * (phaseIncrementScaleQ8 & 0xFF) + 128) / 256);
+}
 constexpr uint8_t deepNoiseShift = 6;
 
 enum Sound : uint8_t {
@@ -111,7 +117,7 @@ constexpr uint8_t secondHootLevelPercent = 100;
 constexpr uint8_t chorusDetuneHz = 3;
 constexpr uint8_t chorusMainWeight = 3;
 constexpr uint16_t vibratoPhaseStep =
-    samplesFromReferenceRate(6) * phaseIncrementScale;
+    phaseIncrementForFrequency(6);
 constexpr uint8_t vibratoDivisor = 40;
 constexpr uint8_t tremoloDepthDivisor = 8;
 constexpr uint16_t breathSamples = samplesFromReferenceRate(2400);

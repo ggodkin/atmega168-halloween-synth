@@ -152,9 +152,9 @@ int16_t renderGhostCall(uint16_t position) {
     owlVibratoPhase += Config::Owl::vibratoPhaseStep;
     frequency += sineSignal(owlVibratoPhase) / Config::Owl::vibratoDivisor;
     if (frequency < 200) frequency = 200;
-    owlPhase += frequency * Config::phaseIncrementScale;
-    owlChorusPhase += (frequency + Config::Owl::chorusDetuneHz)
-        * Config::phaseIncrementScale;
+    owlPhase += Config::phaseIncrementForFrequency(frequency);
+    owlChorusPhase += Config::phaseIncrementForFrequency(
+        frequency + Config::Owl::chorusDetuneHz);
     int16_t envelope = interpolateOwlContour(owlLevelContour, contourPosition);
     envelope = envelope * (secondHoot
         ? Config::Owl::secondHootLevelPercent
@@ -346,16 +346,14 @@ uint8_t AudioEngine::nextSample() {
             bellHighPartialDetune = randomBellDetune();
             bellFourthPartialDetune = randomBellDetune();
         }
-        bellFundamentalPhase += (Config::Bell::fundamentalFrequency
-            + bellFundamentalDetune)
-            * Config::phaseIncrementScale;
-        bellPartialPhase += (Config::Bell::partialFrequency + bellPartialDetune)
-            * Config::phaseIncrementScale;
-        bellHighPartialPhase += (Config::Bell::highPartialFrequency
-            + bellHighPartialDetune)
-            * Config::phaseIncrementScale;
-        bellFourthPartialPhase += (Config::Bell::fourthPartialFrequency
-            + bellFourthPartialDetune) * Config::phaseIncrementScale;
+        bellFundamentalPhase += Config::phaseIncrementForFrequency(
+            Config::Bell::fundamentalFrequency + bellFundamentalDetune);
+        bellPartialPhase += Config::phaseIncrementForFrequency(
+            Config::Bell::partialFrequency + bellPartialDetune);
+        bellHighPartialPhase += Config::phaseIncrementForFrequency(
+            Config::Bell::highPartialFrequency + bellHighPartialDetune);
+        bellFourthPartialPhase += Config::phaseIncrementForFrequency(
+            Config::Bell::fourthPartialFrequency + bellFourthPartialDetune);
         uint8_t attack = bellAttack(position);
         uint8_t fundamentalDecay = bellDecay(position, Config::Bell::fundamentalDecayShift);
         uint8_t partialDecay = bellDecay(position, Config::Bell::partialDecayShift);

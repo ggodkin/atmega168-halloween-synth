@@ -16,8 +16,10 @@ keeps the LED off while idle.
 
 The oscillator uses a 64-entry quarter-wave sine table in flash. The sample
 rate remains 8 kHz because some sound paths use AVR 16-bit division helpers.
-At 11.025 kHz, only about 725 cycles are available per sample, so raising the
-rate requires optimizing and rechecking the ISR budget.
+Synthesized pitch increments use a rounded scale derived from the actual sample
+rate instead of a fixed integer approximation. At 11.025 kHz, only about 725
+cycles are available per sample, so raising the rate requires optimizing and
+rechecking the ISR budget.
 
 Noise combines an independent xorshift32 generator and a 16-bit Galois LFSR to
 produce a less repetitive white-noise source. Three parallel low-pass stages
