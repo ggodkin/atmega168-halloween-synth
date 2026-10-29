@@ -20,10 +20,6 @@ const uint8_t bellAttackEnvelope[32] PROGMEM = {
     0, 1, 3, 7, 12, 18, 25, 33, 42, 52, 62, 74, 85, 97, 109, 121,
     134, 146, 158, 170, 181, 193, 203, 213, 222, 230, 237, 243, 248, 252, 254, 255
 };
-const uint8_t thunderRumbleEnvelope[24] PROGMEM = {
-    255, 248, 240, 230, 220, 210, 198, 186, 174, 160, 146, 132,
-    118, 104, 90, 77, 64, 52, 41, 31, 22, 14, 7, 0
-};
 const int8_t owlWaveTable[64] PROGMEM = {
     0, 12, 24, 36, 48, 60, 71, 81, 91, 99, 107, 113, 117, 119, 120, 118,
     115, 110, 104, 96, 87, 77, 67, 58, 48, 39, 31, 24, 18, 13, 8, 4,
@@ -46,16 +42,12 @@ int16_t deepNoise = 0;
 int16_t pinkFast = 0;
 int16_t pinkMid = 0;
 int16_t pinkSlow = 0;
-int16_t thunderNoiseFast = 0;
-int16_t thunderNoiseSlow = 0;
 int16_t windAirNoise = 0;
 int16_t windHissNoise = 0;
 uint16_t soundSample = 0;
 uint8_t sound = Config::windSound;
 uint16_t modulationPhase = 0;
 uint16_t slowGustPhase = 0;
-uint16_t thunderRumblePhase = 0;
-uint16_t thunderSecondaryPhase = 0;
 uint32_t doorSamplePhase = 0;
 uint16_t bellFundamentalPhase = 0;
 uint16_t bellPartialPhase = 0;
@@ -122,20 +114,6 @@ int8_t randomBellDetune() {
     return (int8_t)(noise8() >> 5) - Config::Bell::randomDetuneRange;
 }
 
-uint8_t thunderBoomGain(uint16_t position, uint16_t start) {
-    uint16_t age = position - start;
-    if (position < start || age >= Config::Thunder::boomAttackSamples
-            + Config::Thunder::boomDecaySamples) {
-        return 0;
-    }
-    if (age < Config::Thunder::boomAttackSamples) {
-        return age >> Config::Thunder::boomAttackShift;
-    }
-    return Config::Thunder::boomPeakGain
-        - ((age - Config::Thunder::boomAttackSamples)
-            >> Config::Thunder::boomDecayShift);
-}
-
 int16_t renderOwlCall(uint16_t position) {
     uint16_t cycle = position % Config::Owl::cycleSamples;
     uint16_t hootPosition = 0;
@@ -163,7 +141,9 @@ int16_t renderOwlCall(uint16_t position) {
     owlChorusPhase += (frequency + Config::Owl::chorusDetuneHz)
         * Config::phaseIncrementScale;
     int16_t envelope = interpolateOwlContour(owlLevelContour, hootPosition);
-    if (secondHoot) envelope = envelope * 5 / 4;
+    envelope = envelope * (secondHoot
+        ? Config::Owl::secondHootLevelPercent
+        : Config::Owl::firstHootLevelPercent) / 100;
     int16_t waveform = (int8_t)pgm_read_byte(&owlWaveTable[owlPhase >> 10]);
     int16_t tone = (waveform * Config::Owl::chorusMainWeight
         + sineSignal(owlChorusPhase))
@@ -205,16 +185,12 @@ void resetSequence() {
     pinkFast = 0;
     pinkMid = 0;
     pinkSlow = 0;
-    thunderNoiseFast = 0;
-    thunderNoiseSlow = 0;
     windAirNoise = 0;
     windHissNoise = 0;
     soundSample = 0;
     sound = Config::windSound;
     modulationPhase = 0;
     slowGustPhase = 0;
-    thunderRumblePhase = 0;
-    thunderSecondaryPhase = 0;
     doorSamplePhase = 0;
     bellFundamentalPhase = 0;
     bellPartialPhase = 0;
@@ -271,7 +247,7 @@ uint8_t AudioEngine::nextSample() {
     deepNoise += (filteredNoise - deepNoise) >> Config::deepNoiseShift;
 
     uint16_t position = soundSample;
-    uint16_t activeSoundSamples = Config::samplesForSound(sound);
+    uint16_t activeSoundSamples = Config::samplesPerSound;
     int16_t sample = 0;
 
     switch (sound) {
@@ -296,54 +272,6 @@ uint8_t AudioEngine::nextSample() {
     }
     case Config::ghostSound: { // Owl-style pitched calls give the ghost its wavering voice.
         sample = renderOwlCall(position);
-        break;
-    }
-    case Config::thunderSound: { // A sharp crack gives way to loud, enveloped low-frequency rumble.
-        modulationPhase += Config::Thunder::rumblePhaseStep;
-        thunderRumblePhase += Config::Thunder::rumbleToneFrequency
-            * Config::phaseIncrementScale;
-        thunderSecondaryPhase += Config::Thunder::secondaryRumbleFrequency
-            * Config::phaseIncrementScale;
-        uint8_t decayIndex = position >> Config::Thunder::rumbleEnvelopeStepShift;
-        uint8_t rumbleDecay = decayIndex < 24
-            ? pgm_read_byte(&thunderRumbleEnvelope[decayIndex])
-            : 0;
-        uint8_t boomGain = thunderBoomGain(position, Config::Thunder::firstBoomStart);
-        uint8_t nextBoom = thunderBoomGain(position, Config::Thunder::secondBoomStart);
-        if (nextBoom > boomGain) boomGain = nextBoom;
-        nextBoom = thunderBoomGain(position, Config::Thunder::thirdBoomStart);
-        if (nextBoom > boomGain) boomGain = nextBoom;
-        uint8_t rumbleGain = Config::Thunder::rumbleBaseGain
-            + (triangleWave(modulationPhase) >> Config::Thunder::rumbleModulationShift)
-            + boomGain;
-        int16_t lowTone = (sineSignal(thunderRumblePhase) * 3
-            + sineSignal(thunderSecondaryPhase)) / 4;
-        int16_t lowRumbleTone = lowTone * rumbleGain >> 8;
-        lowRumbleTone = lowRumbleTone * rumbleDecay >> 8;
-        int16_t deepRumble = (deepNoise / 2) * rumbleGain >> 8;
-        deepRumble = deepRumble * rumbleDecay >> 8;
-        thunderNoiseFast += (noise - thunderNoiseFast)
-            >> Config::Thunder::rumbleNoiseFastFilterShift;
-        thunderNoiseSlow += (noise - thunderNoiseSlow)
-            >> Config::Thunder::rumbleNoiseSlowFilterShift;
-        int16_t bandNoise = (thunderNoiseFast - thunderNoiseSlow) >> 1;
-        int16_t rollingNoise = bandNoise * rumbleGain
-            >> Config::Thunder::rumbleNoiseGainShift;
-        rollingNoise = rollingNoise * rumbleDecay >> 8;
-        int16_t highPassedNoise = noise - pinkFast;
-        int16_t crack = 0;
-        if (position < Config::Thunder::crackSamples) {
-            int32_t crackValue = (int32_t)highPassedNoise
-                * ((Config::Thunder::crackSamples - position)
-                    >> Config::Thunder::crackLevelShift)
-                / Config::Thunder::crackScale;
-            if (crackValue > 127) crackValue = 127;
-            if (crackValue < -128) crackValue = -128;
-            crack = (int16_t)crackValue;
-        }
-        int16_t click = position == 0 ? Config::Thunder::crackClickLevel : 0;
-        sample = position == 0 ? click
-            : crack + deepRumble + lowRumbleTone + rollingNoise;
         break;
     }
     case Config::doorSound: { // Play the recorded, flash-resident door squeak.
@@ -400,9 +328,7 @@ uint8_t AudioEngine::nextSample() {
 
     uint16_t fadeSamples = sound == Config::bellSound
         ? Config::Bell::fadeSamples
-        : sound == Config::thunderSound
-            ? Config::Thunder::fadeSamples
-            : Config::soundFadeSamples;
+        : Config::soundFadeSamples;
     uint8_t fade = 255;
     if (position < fadeSamples) {
         fade = position;
@@ -420,8 +346,6 @@ uint8_t AudioEngine::nextSample() {
             ++sound;
             modulationPhase = 0;
             slowGustPhase = 0;
-            thunderRumblePhase = 0;
-            thunderSecondaryPhase = 0;
             doorSamplePhase = 0;
             bellFundamentalPhase = 0;
             bellPartialPhase = 0;

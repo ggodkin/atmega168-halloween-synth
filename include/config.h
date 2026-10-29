@@ -27,16 +27,11 @@ constexpr uint8_t deepNoiseShift = 6;
 enum Sound : uint8_t {
     windSound,
     ghostSound,
-    thunderSound,
     doorSound,
     bellSound,
     owlSound
 };
 constexpr uint8_t soundCount = owlSound + 1;
-constexpr uint16_t thunderDurationSamples = samplesFromReferenceRate(24000);
-constexpr uint16_t samplesForSound(uint8_t sound) {
-    return sound == thunderSound ? thunderDurationSamples : samplesPerSound;
-}
 
 namespace PinkNoise {
 constexpr uint8_t fastFilterShift = 2;
@@ -62,31 +57,6 @@ constexpr uint8_t hissDivisor = 8;
 constexpr uint8_t fastGustDepthShift = 1;
 constexpr uint8_t slowGustDepthShift = 2;
 constexpr uint8_t gustMixShift = 7;
-}
-
-namespace Thunder {
-constexpr uint16_t rumblePhaseStep = samplesFromReferenceRate(3);
-constexpr uint16_t rumbleToneFrequency = 92;
-constexpr uint16_t secondaryRumbleFrequency = 137;
-constexpr uint8_t rumbleEnvelopeStepShift = 10;
-constexpr uint16_t fadeSamples = samplesFromReferenceRate(16);
-constexpr uint8_t rumbleNoiseFastFilterShift = 2;
-constexpr uint8_t rumbleNoiseSlowFilterShift = 5;
-constexpr uint8_t rumbleNoiseGainShift = 7;
-constexpr uint16_t crackSamples = samplesFromReferenceRate(300);
-constexpr uint16_t crackScale = 36;
-constexpr uint8_t crackLevelShift = 1;
-constexpr uint8_t crackClickLevel = 110;
-constexpr uint8_t rumbleBaseGain = 110;
-constexpr uint8_t rumbleModulationShift = 2;
-constexpr uint8_t boomPeakGain = 80;
-constexpr uint16_t boomAttackSamples = samplesFromReferenceRate(1024);
-constexpr uint16_t boomDecaySamples = samplesFromReferenceRate(2048);
-constexpr uint8_t boomAttackShift = 4;
-constexpr uint8_t boomDecayShift = 5;
-constexpr uint16_t firstBoomStart = samplesFromReferenceRate(2000);
-constexpr uint16_t secondBoomStart = samplesFromReferenceRate(12000);
-constexpr uint16_t thirdBoomStart = samplesFromReferenceRate(18000);
 }
 
 namespace Door {
@@ -125,7 +95,9 @@ constexpr uint16_t secondHootEnd = samplesFromReferenceRate(16250);
 constexpr uint8_t contourEntryCount = 40;
 constexpr uint8_t contourStepShift = 7;
 constexpr uint16_t baseFrequency = 520;
-constexpr uint8_t secondHootOffset = 100;
+constexpr uint8_t firstHootLevelPercent = 65;
+constexpr uint8_t secondHootOffset = 160;
+constexpr uint8_t secondHootLevelPercent = 100;
 constexpr uint8_t chorusDetuneHz = 3;
 constexpr uint8_t chorusMainWeight = 3;
 constexpr uint16_t vibratoPhaseStep =

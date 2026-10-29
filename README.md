@@ -3,16 +3,11 @@
 Bare-metal AVR firmware for an ATmega168 at 8 MHz; no Arduino framework is
 required. Connect the RCWL-0516 VCC to a suitable 5 V supply, GND to board GND,
 and OUT to PD2 (Arduino D2). A low-to-high transition starts one complete
-sequence: wind and ghost (four seconds each), thunder (three seconds), then
-door squeak, bell, and owl (four seconds each).
+sequence: wind, ghost, door squeak, bell, and owl (four seconds each).
 If OUT is already HIGH at startup, it starts the first sequence. Sensor
 transitions during playback are ignored; another sequence can start only after
 completion and a new low-to-high transition. Audio is output as 31.25 kHz PWM
 on PD6/OC0A, updated at 8 kHz.
-
-Thunder uses a loud, 300-sample high-passed noise crack with an initial click,
-followed by speaker-friendly low-mid tones and band-limited rolling noise under
-a multi-second decay envelope with three gain swells.
 
 The oscillator uses a 64-entry quarter-wave sine table in flash. The sample
 rate remains 8 kHz because some sound paths use AVR 16-bit division helpers.
@@ -41,9 +36,10 @@ each strike and exponential ring-down. Its partials now fade in over a smooth
 128 ms curve, with only a quiet filtered-noise strike transient.
 
 The owl uses a flash-resident harmonic wavetable and interpolated pitch and
-amplitude contours for shorter, approximately 0.625-second calls. The second
-note is higher and stronger to create a clear "hoo-HOO" phrase. A very soft
-filtered-noise breath fades in and out at each call's onset.
+amplitude contours for shorter, approximately 0.625-second calls. The first
+note is lower and softer, followed by a higher, stronger note for a clear
+"ho-HOO" phrase. A very soft filtered-noise breath fades in and out at each
+call's onset.
 
 Edit `include/config.h` to change the sensor/PWM pins, sample timing, sound
 durations, and per-sound tuning parameters. PlatformIO build and upload options
